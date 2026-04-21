@@ -11,6 +11,27 @@
 
 VoiceWink is a fork of [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk) for environments that need a narrower, more security-conscious baseline.
 
+## Install
+
+### Homebrew
+
+Published builds are available through the `humanfrontier/tap` Homebrew tap:
+
+```bash
+brew tap humanfrontier/tap
+brew install --cask --no-quarantine humanfrontier/tap/voicewink
+```
+
+Current public releases are signed with a local self-signed certificate and are not notarized.
+
+If you install the app with quarantine still attached, remove it manually:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/VoiceWink.app"
+```
+
+Releases are published on GitHub here: [humanfrontier/voicewink/releases](https://github.com/humanfrontier/voicewink/releases)
+
 This fork keeps the core dictation workflow intact:
 - local transcription with a bundled starter model
 - explicit microphone selection
@@ -34,7 +55,7 @@ If VoiceInk works for your setup, support the original app at [tryvoiceink.com](
 
 ### Build from Source
 
-VoiceWink is currently set up first for source builds:
+VoiceWink can also be built locally from source:
 
 ```bash
 git clone <your-voicewink-repo-url> VoiceWink
@@ -48,8 +69,10 @@ For full build details, see [BUILDING.md](BUILDING.md).
 ### Releases
 
 - Local testing builds use `make local`.
-- Distribution builds use `make release-archive` with a real Developer ID identity.
-- A Homebrew cask for this fork is not published yet.
+- Public releases are published on GitHub Releases in this repository.
+- Homebrew installation is published as `humanfrontier/tap/voicewink`.
+- Current public releases are intentionally unnotarized and may require `--no-quarantine` or manual quarantine removal.
+- Developer ID signing and notarization remain optional release paths if you decide to enable them later.
 
 ## Documentation
 
@@ -83,7 +106,7 @@ This project remains licensed under the GNU General Public License v3.0. See [LI
 
 ### Essential Dependencies
 
-- [Sparkle](https://github.com/sparkle-project/Sparkle), for keeping VoiceWink up to date
+- [Sparkle](https://github.com/sparkle-project/Sparkle), still vendored from upstream and pending removal from the local-only fork
 - [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts)
 - [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin)
 - [MediaRemoteAdapter](https://github.com/ejbills/mediaremote-adapter)
