@@ -57,6 +57,7 @@ build: setup
 # Build for local use without Apple Developer certificate
 local: check setup
 	@echo "Building VoiceWink for local use (no Apple Developer certificate required)..."
+	@test -n "$$P12_PASSWORD" || { echo "P12_PASSWORD is required for make local. Export a local-only value before running make local."; exit 1; }
 	@"$(LOCAL_CODESIGN_SCRIPT)" "$(LOCAL_CODESIGN_KEYCHAIN)" "$(LOCAL_CODESIGN_CERT_NAME)" "$(LOCAL_CODESIGN_DIR)"
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
 	xcodebuild -project VoiceWink.xcodeproj -scheme VoiceWink -configuration Debug \

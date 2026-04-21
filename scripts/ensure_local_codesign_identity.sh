@@ -4,7 +4,7 @@ set -euo pipefail
 KEYCHAIN_PATH="${1:?missing keychain path}"
 CERT_NAME="${2:?missing certificate common name}"
 WORK_DIR="${3:?missing work directory}"
-P12_PASSWORD="voicewink-local-codesign"
+P12_PASSWORD="${P12_PASSWORD:?P12_PASSWORD env var not set}"
 
 KEY_PATH="$WORK_DIR/voicewink-local-codesign.key"
 CERT_PATH="$WORK_DIR/voicewink-local-codesign.crt"

@@ -63,11 +63,14 @@ If you don't have an Apple Developer certificate, use `make local`:
 ```bash
 git clone <your-voicewink-repo-url> VoiceWink
 cd VoiceWink
+export P12_PASSWORD='<local-password>'
 make local
 open ./VoiceWink.app
 ```
 
 This builds VoiceWink with a project-owned local signing identity using a separate build configuration (`LocalBuild.xcconfig`) that requires no Apple Developer account.
+
+`P12_PASSWORD` is only used locally when the self-signed codesign identity is exported and imported into the local keychain. Set it in your shell or CI secrets, never in source control.
 
 ### How It Works
 

@@ -62,6 +62,7 @@ VoiceWink can also be built locally from source:
 ```bash
 git clone <your-voicewink-repo-url> VoiceWink
 cd VoiceWink
+export P12_PASSWORD='<local-password>'
 make local
 open ./VoiceWink.app
 ```
