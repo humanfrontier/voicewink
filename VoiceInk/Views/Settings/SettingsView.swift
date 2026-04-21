@@ -10,15 +10,12 @@ struct SettingsView: View {
     @EnvironmentObject private var menuBarManager: MenuBarManager
     @EnvironmentObject private var hotkeyManager: HotkeyManager
     @EnvironmentObject private var recorderUIManager: RecorderUIManager
-    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
-    @EnvironmentObject private var enhancementService: AIEnhancementService
     @StateObject private var deviceManager = AudioDeviceManager.shared
     @ObservedObject private var soundManager = SoundManager.shared
     @ObservedObject private var mediaController = MediaController.shared
     @ObservedObject private var playbackController = PlaybackController.shared
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
     @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
-    @AppStorage("enableAnnouncements") private var enableAnnouncements = true
     @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
     @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 2.0
     @AppStorage("useAppleScriptPaste") private var useAppleScriptPaste = false
@@ -79,17 +76,13 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Shortcuts")
+                    .accessibilityIdentifier("settings.shortcutsSection")
             }
 
             // MARK: - Additional Shortcuts
             Section("Additional Shortcuts") {
                 LabeledContent("Paste Last Transcription (Original)") {
                     KeyboardShortcuts.Recorder(for: .pasteLastTranscription)
-                        .controlSize(.small)
-                }
-
-                LabeledContent("Paste Last Transcription (Enhanced)") {
-                    KeyboardShortcuts.Recorder(for: .pasteLastEnhancement)
                         .controlSize(.small)
                 }
 
@@ -217,15 +210,14 @@ struct SettingsView: View {
                     .onChange(of: autoUpdateCheck) { _, newValue in
                         updaterViewModel.toggleAutoUpdates(newValue)
                     }
+                    .disabled(!updaterViewModel.supportsAutomaticChecks)
 
-                Toggle("Show Announcements", isOn: $enableAnnouncements)
-                    .onChange(of: enableAnnouncements) { _, newValue in
-                        if newValue {
-                            AnnouncementsService.shared.start()
-                        } else {
-                            AnnouncementsService.shared.stop()
-                        }
-                    }
+                if let automaticUpdateHelpText = updaterViewModel.automaticUpdateHelpText {
+                    Text(automaticUpdateHelpText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 HStack {
                     Button("Check for Updates") {
@@ -245,7 +237,7 @@ struct SettingsView: View {
             } header: {
                 Text("Privacy")
             } footer: {
-                Text("Control how VoiceInk handles your transcription data and audio recordings.")
+                Text("Control how VoiceWink handles your transcription data and audio recordings.")
             }
 
             // MARK: - Backup
@@ -253,8 +245,6 @@ struct SettingsView: View {
                 LabeledContent("Export Settings") {
                     Button("Export") {
                         ImportExportService.shared.exportSettings(
-                            enhancementService: enhancementService,
-                            whisperPrompt: WhisperPrompt(),
                             hotkeyManager: hotkeyManager,
                             menuBarManager: menuBarManager,
                             mediaController: mediaController,
@@ -269,23 +259,20 @@ struct SettingsView: View {
                 LabeledContent("Import Settings") {
                     Button("Import") {
                         ImportExportService.shared.importSettings(
-                            enhancementService: enhancementService,
-                            whisperPrompt: WhisperPrompt(),
                             hotkeyManager: hotkeyManager,
                             menuBarManager: menuBarManager,
                             mediaController: mediaController,
                             playbackController: playbackController,
                             soundManager: soundManager,
                             recorderUIManager: recorderUIManager,
-                            modelContext: modelContext,
-                            transcriptionModelManager: transcriptionModelManager
+                            modelContext: modelContext
                         )
                     }
                 }
             } header: {
                 Text("Backup")
             } footer: {
-                Text("Export or import all your settings, prompts, power modes, dictionary, and custom models.")
+                Text("Export or import your settings, power modes, dictionary, and retained local app preferences.")
             }
 
             // MARK: - Diagnostics

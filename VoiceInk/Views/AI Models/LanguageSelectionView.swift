@@ -37,7 +37,7 @@ struct LanguageSelectionView: View {
         guard let provider = transcriptionModelManager.currentTranscriptionModel?.provider else {
             return false
         }
-        return provider == .fluidAudio || provider == .gemini
+        return provider == .fluidAudio
     }
 
     // Function to get current model's supported languages

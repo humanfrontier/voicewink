@@ -3,35 +3,26 @@ import SwiftUI
 struct HelpAndResourcesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Help & Resources")
+            Text("Why VoiceWink Exists")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.primary.opacity(0.8))
 
-            VStack(alignment: .leading, spacing: 10) {
-                resourceLink(
-                    icon: "sparkles",
-                    title: "Recommended Models",
-                    url: "https://tryvoiceink.com/recommended-models"
-                )
+            VStack(alignment: .leading, spacing: 12) {
+                Text("VoiceWink is a fork of VoiceInk for environments with stricter security requirements.")
+                    .font(.system(size: 13, weight: .semibold))
+
+                Text("It keeps the core dictation experience, runs transcription locally, and removes anything this fork does not need.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+
+                Text("If VoiceInk works for your setup, please support it by purchasing a license there. If you use VoiceWink because you need a more locked-down option, consider supporting VoiceInk anyway. VoiceInk helps fund the work this fork builds on.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
 
                 resourceLink(
-                    icon: "video.fill",
-                    title: "YouTube Videos & Guides",
-                    url: "https://www.youtube.com/@tryvoiceink/videos"
-                )
-
-                resourceLink(
-                    icon: "book.fill",
-                    title: "Documentation",
-                    url: "https://tryvoiceink.com/docs"
-                )
-                
-                resourceLink(
-                    icon: "exclamationmark.bubble.fill",
-                    title: "Feedback or Issues?",
-                    action: {
-                        EmailSupport.openSupportEmail()
-                    }
+                    icon: "heart.fill",
+                    title: "Support VoiceInk",
+                    url: "https://tryvoiceink.com"
                 )
             }
         }
@@ -46,11 +37,9 @@ struct HelpAndResourcesSection: View {
         )
     }
     
-    private func resourceLink(icon: String, title: String, url: String? = nil, action: (() -> Void)? = nil) -> some View {
+    private func resourceLink(icon: String, title: String, url: String? = nil) -> some View {
         Button(action: {
-            if let action = action {
-                action()
-            } else if let urlString = url, let url = URL(string: urlString) {
+            if let urlString = url, let url = URL(string: urlString) {
                 NSWorkspace.shared.open(url)
             }
         }) {

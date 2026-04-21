@@ -9,12 +9,18 @@ class TranscriptionModelManager: ObservableObject {
 
     private weak var whisperModelManager: WhisperModelManager?
     private weak var fluidAudioModelManager: FluidAudioModelManager?
+    private let userDefaults: UserDefaults
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "TranscriptionModelManager")
 
-    init(whisperModelManager: WhisperModelManager, fluidAudioModelManager: FluidAudioModelManager) {
+    init(
+        whisperModelManager: WhisperModelManager,
+        fluidAudioModelManager: FluidAudioModelManager,
+        userDefaults: UserDefaults = .standard
+    ) {
         self.whisperModelManager = whisperModelManager
         self.fluidAudioModelManager = fluidAudioModelManager
+        self.userDefaults = userDefaults
 
         // Wire up deletion callbacks so each manager notifies this manager.
         whisperModelManager.onModelDeleted = { [weak self] modelName in
@@ -43,14 +49,12 @@ class TranscriptionModelManager: ObservableObject {
             case .fluidAudio:
                 return fluidAudioModelManager?.isFluidAudioModelDownloaded(named: model.name) ?? false
             case .nativeApple:
-                if #available(macOS 26, *) { return true } else { return false }
-            case .custom:
-                return true
-            default:
-                if let cloudProvider = CloudProviderRegistry.provider(for: model.provider) {
-                    return APIKeyManager.shared.hasAPIKey(forProvider: cloudProvider.providerKey)
-                }
-                return false
+                return {
+                    if #available(macOS 26, *) {
+                        return true
+                    }
+                    return false
+                }()
             }
         }
     }
@@ -58,9 +62,14 @@ class TranscriptionModelManager: ObservableObject {
     // MARK: - Model loading from UserDefaults
 
     func loadCurrentTranscriptionModel() {
-        if let savedModelName = UserDefaults.standard.string(forKey: "CurrentTranscriptionModel"),
+        if let savedModelName = userDefaults.string(forKey: "CurrentTranscriptionModel"),
            let savedModel = allAvailableModels.first(where: { $0.name == savedModelName }) {
             currentTranscriptionModel = savedModel
+            return
+        }
+
+        if let bundledModel = fallbackModelSelection() {
+            setDefaultTranscriptionModel(bundledModel)
         }
     }
 
@@ -68,7 +77,7 @@ class TranscriptionModelManager: ObservableObject {
 
     func setDefaultTranscriptionModel(_ model: any TranscriptionModel) {
         self.currentTranscriptionModel = model
-        UserDefaults.standard.set(model.name, forKey: "CurrentTranscriptionModel")
+        userDefaults.set(model.name, forKey: "CurrentTranscriptionModel")
 
         if model.provider != .whisper {
             whisperModelManager?.loadedWhisperModel = nil
@@ -97,6 +106,10 @@ class TranscriptionModelManager: ObservableObject {
         if let currentName = currentModelName,
            let updatedModel = allAvailableModels.first(where: { $0.name == currentName }) {
             setDefaultTranscriptionModel(updatedModel)
+        } else if currentModelName == nil,
+                  userDefaults.string(forKey: "CurrentTranscriptionModel") == nil,
+                  let fallbackModel = fallbackModelSelection() {
+            setDefaultTranscriptionModel(fallbackModel)
         }
     }
 
@@ -104,7 +117,7 @@ class TranscriptionModelManager: ObservableObject {
 
     func clearCurrentTranscriptionModel() {
         currentTranscriptionModel = nil
-        UserDefaults.standard.removeObject(forKey: "CurrentTranscriptionModel")
+        userDefaults.removeObject(forKey: "CurrentTranscriptionModel")
     }
 
     // MARK: - Handle model deletion callback
@@ -113,11 +126,19 @@ class TranscriptionModelManager: ObservableObject {
     func handleModelDeleted(_ modelName: String) {
         if currentTranscriptionModel?.name == modelName {
             currentTranscriptionModel = nil
-            UserDefaults.standard.removeObject(forKey: "CurrentTranscriptionModel")
+            userDefaults.removeObject(forKey: "CurrentTranscriptionModel")
             whisperModelManager?.loadedWhisperModel = nil
             whisperModelManager?.isModelLoaded = false
-            UserDefaults.standard.removeObject(forKey: "CurrentModel")
+            userDefaults.removeObject(forKey: "CurrentModel")
         }
         refreshAllAvailableModels()
+    }
+
+    private func fallbackModelSelection() -> (any TranscriptionModel)? {
+        if let bundledModel = allAvailableModels.first(where: { $0.name == AppIdentity.bundledStarterWhisperModelName }) {
+            return bundledModel
+        }
+
+        return allAvailableModels.first(where: { $0.provider == .whisper })
     }
 }

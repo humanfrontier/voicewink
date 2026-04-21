@@ -5,11 +5,8 @@ import UniformTypeIdentifiers
 struct AudioTranscribeView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var engine: VoiceInkEngine
-    @EnvironmentObject private var enhancementService: AIEnhancementService
     @StateObject private var transcriptionManager = AudioTranscriptionManager.shared
     @State private var isDropTargeted = false
-    @State private var isEnhancementEnabled = false
-    @State private var selectedPromptId: UUID?
     @State private var expandedItemId: UUID?
 
     var body: some View {
@@ -91,6 +88,7 @@ struct AudioTranscribeView: View {
             Spacer()
         }
         .padding()
+        .accessibilityIdentifier("transcribeAudio.emptyState")
     }
 
     // MARK: - Queue Form View
@@ -169,8 +167,6 @@ struct AudioTranscribeView: View {
 
             Spacer()
 
-            enhancementControls
-
             if transcriptionManager.isProcessingQueue {
                 Button {
                     transcriptionManager.cancelProcessing()
@@ -238,43 +234,6 @@ struct AudioTranscribeView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
-    }
-
-    private var enhancementControls: some View {
-        HStack(spacing: 8) {
-            Toggle("AI Enhancement", isOn: $isEnhancementEnabled)
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .onChange(of: isEnhancementEnabled) { _, newValue in
-                    enhancementService.isEnhancementEnabled = newValue
-                }
-
-            if isEnhancementEnabled && !enhancementService.allPrompts.isEmpty {
-                Divider().frame(height: 16)
-
-                let promptBinding = Binding<UUID>(
-                    get: {
-                        selectedPromptId ?? enhancementService.allPrompts.first?.id ?? UUID()
-                    },
-                    set: { newValue in
-                        selectedPromptId = newValue
-                        enhancementService.selectedPromptId = newValue
-                    }
-                )
-
-                Picker("Prompt", selection: promptBinding) {
-                    ForEach(enhancementService.allPrompts) { prompt in
-                        Text(prompt.title).tag(prompt.id)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
-            }
-        }
-        .onAppear {
-            isEnhancementEnabled = enhancementService.isEnhancementEnabled
-            selectedPromptId = enhancementService.selectedPromptId
-        }
     }
 
     // MARK: - Drop Overlay

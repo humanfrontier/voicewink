@@ -10,8 +10,6 @@ class AudioTranscriptionService: ObservableObject {
     @Published var currentError: TranscriptionError?
 
     private let modelContext: ModelContext
-    private let enhancementService: AIEnhancementService?
-    private let promptDetectionService = PromptDetectionService()
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioTranscriptionService")
     private let serviceRegistry: TranscriptionServiceRegistry
 
@@ -24,13 +22,11 @@ class AudioTranscriptionService: ObservableObject {
 
     init(modelContext: ModelContext, engine: VoiceInkEngine) {
         self.modelContext = modelContext
-        self.enhancementService = engine.enhancementService
-        self.serviceRegistry = TranscriptionServiceRegistry(modelProvider: engine.whisperModelManager, modelsDirectory: engine.whisperModelManager.modelsDirectory, modelContext: modelContext)
+        self.serviceRegistry = TranscriptionServiceRegistry(modelProvider: engine.whisperModelManager, modelsDirectory: engine.whisperModelManager.modelsDirectory)
     }
 
-    init(modelContext: ModelContext, serviceRegistry: TranscriptionServiceRegistry, enhancementService: AIEnhancementService?) {
+    init(modelContext: ModelContext, serviceRegistry: TranscriptionServiceRegistry) {
         self.modelContext = modelContext
-        self.enhancementService = enhancementService
         self.serviceRegistry = serviceRegistry
     }
     
@@ -64,9 +60,7 @@ class AudioTranscriptionService: ObservableObject {
 
             let audioAsset = AVURLAsset(url: url)
             let duration = CMTimeGetSeconds(try await audioAsset.load(.duration))
-            let recordingsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("com.prakashjoshipax.VoiceInk")
-                .appendingPathComponent("Recordings")
+            let recordingsDirectory = AppPaths.recordingsDirectory
             
             let fileName = "retranscribed_\(UUID().uuidString).wav"
             let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
@@ -81,109 +75,29 @@ class AudioTranscriptionService: ObservableObject {
             
             let permanentURLString = permanentURL.absoluteString
 
-            // Apply prompt detection for trigger words
-            let originalText = text
-            var promptDetectionResult: PromptDetectionService.PromptDetectionResult? = nil
-
-            if let enhancementService = enhancementService, enhancementService.isConfigured {
-                let detectionResult = await promptDetectionService.analyzeText(text, with: enhancementService)
-                promptDetectionResult = detectionResult
-                await promptDetectionService.applyDetectionResult(detectionResult, to: enhancementService)
+            let newTranscription = Transcription(
+                text: text,
+                duration: duration,
+                audioFileURL: permanentURLString,
+                transcriptionModelName: model.displayName,
+                transcriptionDuration: transcriptionDuration,
+                powerModeName: powerModeName,
+                powerModeEmoji: powerModeEmoji
+            )
+            modelContext.insert(newTranscription)
+            do {
+                try modelContext.save()
+                NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
+                NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
+            } catch {
+                logger.error("❌ Failed to save transcription: \(error.localizedDescription, privacy: .public)")
             }
 
-            // Apply AI enhancement if enabled
-            if let enhancementService = enhancementService,
-               enhancementService.isEnhancementEnabled,
-               enhancementService.isConfigured {
-                do {
-                    let textForAI = promptDetectionResult?.processedText ?? text
-                    let (enhancedText, enhancementDuration, promptName) = try await enhancementService.enhance(textForAI)
-                    let newTranscription = Transcription(
-                        text: originalText,
-                        duration: duration,
-                        enhancedText: enhancedText,
-                        audioFileURL: permanentURLString,
-                        transcriptionModelName: model.displayName,
-                        aiEnhancementModelName: enhancementService.getAIService()?.currentModel,
-                        promptName: promptName,
-                        transcriptionDuration: transcriptionDuration,
-                        enhancementDuration: enhancementDuration,
-                        aiRequestSystemMessage: enhancementService.lastSystemMessageSent,
-                        aiRequestUserMessage: enhancementService.lastUserMessageSent,
-                        powerModeName: powerModeName,
-                        powerModeEmoji: powerModeEmoji
-                    )
-                    modelContext.insert(newTranscription)
-                    do {
-                        try modelContext.save()
-                        NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-                        NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
-                    } catch {
-                        logger.error("❌ Failed to save transcription: \(error.localizedDescription, privacy: .public)")
-                    }
-
-                    // Restore original prompt settings if AI was temporarily enabled
-                    if let result = promptDetectionResult,
-                       result.shouldEnableAI {
-                        await promptDetectionService.restoreOriginalSettings(result, to: enhancementService)
-                    }
-
-                    await MainActor.run {
-                        isTranscribing = false
-                    }
-
-                    return newTranscription
-                } catch {
-                    let newTranscription = Transcription(
-                        text: originalText,
-                        duration: duration,
-                        audioFileURL: permanentURLString,
-                        transcriptionModelName: model.displayName,
-                        promptName: nil,
-                        transcriptionDuration: transcriptionDuration,
-                        powerModeName: powerModeName,
-                        powerModeEmoji: powerModeEmoji
-                    )
-                    modelContext.insert(newTranscription)
-                    do {
-                        try modelContext.save()
-                        NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-                        NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
-                    } catch {
-                        logger.error("❌ Failed to save transcription: \(error.localizedDescription, privacy: .public)")
-                    }
-
-                    await MainActor.run {
-                        isTranscribing = false
-                    }
-
-                    return newTranscription
-                }
-            } else {
-                let newTranscription = Transcription(
-                    text: originalText,
-                    duration: duration,
-                    audioFileURL: permanentURLString,
-                    transcriptionModelName: model.displayName,
-                    promptName: nil,
-                    transcriptionDuration: transcriptionDuration,
-                    powerModeName: powerModeName,
-                    powerModeEmoji: powerModeEmoji
-                )
-                modelContext.insert(newTranscription)
-                do {
-                    try modelContext.save()
-                    NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
-                } catch {
-                    logger.error("❌ Failed to save transcription: \(error.localizedDescription, privacy: .public)")
-                }
-
-                await MainActor.run {
-                    isTranscribing = false
-                }
-
-                return newTranscription
+            await MainActor.run {
+                isTranscribing = false
             }
+
+            return newTranscription
         } catch {
             logger.error("❌ Transcription failed: \(error.localizedDescription, privacy: .public)")
             currentError = .transcriptionFailed

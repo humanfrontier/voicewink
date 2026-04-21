@@ -29,10 +29,6 @@ struct PerformanceAnalysisPanelView: View {
                     if !analysis.transcriptionModels.isEmpty {
                         transcriptionModelsSection
                     }
-
-                    if !analysis.enhancementModels.isEmpty {
-                        enhancementModelsSection
-                    }
                 }
                 .padding(16)
             }
@@ -68,7 +64,6 @@ struct PerformanceAnalysisPanelView: View {
             HStack(spacing: 10) {
                 summaryPill(icon: "doc.text.fill", value: "\(analysis.totalTranscripts)", label: "Total", color: .indigo)
                 summaryPill(icon: "waveform.path.ecg", value: "\(analysis.totalWithTranscriptionData)", label: "Analyzable", color: .teal)
-                summaryPill(icon: "sparkles", value: "\(analysis.totalEnhancedFiles)", label: "Enhanced", color: .mint)
             }
         }
     }
@@ -208,50 +203,6 @@ struct PerformanceAnalysisPanelView: View {
         .background(MetricCardBackground(color: .mint))
         .cornerRadius(12)
     }
-
-    // MARK: - Enhancement Models
-
-    private var enhancementModelsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("Enhancement Models")
-
-            LazyVGrid(columns: gridColumns, spacing: 12) {
-                ForEach(analysis.enhancementModels) { modelStat in
-                    enhancementModelTile(modelStat)
-                }
-            }
-        }
-    }
-
-    private func enhancementModelTile(_ modelStat: PerformanceAnalyzer.ModelStat) -> some View {
-        VStack(spacing: 10) {
-            // Model name + count
-            VStack(spacing: 2) {
-                Text(modelStat.name)
-                    .font(.system(size: 12, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text("\(modelStat.fileCount) transcripts")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-
-            // Hero metric
-            VStack(spacing: 3) {
-                Text(String(format: "%.2f s", modelStat.avgProcessingTime))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(.indigo)
-                Text("Avg. Enhancement Time")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(14)
-        .background(MetricCardBackground(color: .indigo))
-        .cornerRadius(12)
-    }
-
     // MARK: - Helpers
 
     private func sectionHeader(_ title: String) -> some View {

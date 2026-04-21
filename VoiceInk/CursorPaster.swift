@@ -2,11 +2,21 @@ import Foundation
 import AppKit
 import os
 
-private let logger = Logger(subsystem: "com.VoiceInk", category: "CursorPaster")
+private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "CursorPaster")
 
 class CursorPaster {
+    enum PasteOutcome {
+        case scheduled
+        case copiedToClipboardAccessibilityRequired
+    }
 
-    static func pasteAtCursor(_ text: String) {
+    static func pasteAtCursor(_ text: String) -> PasteOutcome {
+        guard AXIsProcessTrusted() else {
+            _ = ClipboardManager.copyToClipboard(text)
+            logger.error("Accessibility not trusted, copied transcription to clipboard instead of pasting")
+            return .copiedToClipboardAccessibilityRequired
+        }
+
         let pasteboard = NSPasteboard.general
         let shouldRestoreClipboard = UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste")
 
@@ -24,7 +34,7 @@ class CursorPaster {
             }
         }
 
-        ClipboardManager.setClipboard(text, transient: shouldRestoreClipboard)
+        _ = ClipboardManager.setClipboard(text, transient: shouldRestoreClipboard)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             if UserDefaults.standard.bool(forKey: "useAppleScriptPaste") {
@@ -47,6 +57,15 @@ class CursorPaster {
                 }
             }
         }
+
+        return .scheduled
+    }
+
+    static func openAccessibilitySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     // MARK: - AppleScript paste

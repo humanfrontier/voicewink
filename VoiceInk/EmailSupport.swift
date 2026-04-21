@@ -4,16 +4,12 @@ import AppKit
 
 struct EmailSupport {
     static func generateSupportEmailURL() -> URL? {
-        let subject = "VoiceInk Support Request"
+        let subject = "VoiceWink Support Request"
         let systemInfo = SystemInfoService.shared.getSystemInfoString()
 
         let body = """
 
         ------------------------
-        ✨ **SCREEN RECORDING HIGHLY RECOMMENDED** ✨
-        ▶️ Create a quick screen recording showing the issue!
-        ▶️ It helps me understand and fix the problem much faster.
-
         📝 ISSUE DETAILS:
         - What steps did you take before the issue occurred?
         - What did you expect to happen?

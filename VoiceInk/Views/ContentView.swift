@@ -8,16 +8,28 @@ enum ViewType: String, CaseIterable, Identifiable {
     case metrics = "Dashboard"
     case transcribeAudio = "Transcribe Audio"
     case history = "History"
-    case models = "AI Models"
-    case enhancement = "Enhancement"
+    case models = "Local Models"
     case powerMode = "Power Mode"
     case permissions = "Permissions"
     case audioInput = "Audio Input"
     case dictionary = "Dictionary"
     case settings = "Settings"
-    case license = "VoiceInk Pro"
 
     var id: String { rawValue }
+
+    var uiTestID: String {
+        switch self {
+        case .metrics: return "metrics"
+        case .transcribeAudio: return "transcribeAudio"
+        case .history: return "history"
+        case .models: return "models"
+        case .powerMode: return "powerMode"
+        case .permissions: return "permissions"
+        case .audioInput: return "audioInput"
+        case .dictionary: return "dictionary"
+        case .settings: return "settings"
+        }
+    }
 
     var icon: String {
         switch self {
@@ -25,13 +37,11 @@ enum ViewType: String, CaseIterable, Identifiable {
         case .transcribeAudio: return "waveform.circle.fill"
         case .history: return "doc.text.fill"
         case .models: return "brain.head.profile"
-        case .enhancement: return "wand.and.stars"
         case .powerMode: return "sparkles.square.fill.on.square"
         case .permissions: return "shield.fill"
         case .audioInput: return "mic.fill"
         case .dictionary: return "character.book.closed.fill"
         case .settings: return "gearshape.fill"
-        case .license: return "checkmark.seal.fill"
         }
     }
 }
@@ -56,16 +66,9 @@ struct VisualEffectView: NSViewRepresentable {
 
 struct ContentView: View {
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ContentView")
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.colorScheme) private var colorScheme
-    @EnvironmentObject private var engine: VoiceInkEngine
     @EnvironmentObject private var whisperModelManager: WhisperModelManager
-    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
-    @EnvironmentObject private var hotkeyManager: HotkeyManager
     @AppStorage("powerModeUIFlag") private var powerModeUIFlag = false
     @State private var selectedView: ViewType? = .metrics
-    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-    @StateObject private var licenseViewModel = LicenseViewModel()
 
     private var visibleViewTypes: [ViewType] {
         ViewType.allCases.filter { viewType in
@@ -90,18 +93,8 @@ struct ContentView: View {
                                 .cornerRadius(8)
                         }
 
-                        Text("VoiceInk")
+                        Text("VoiceWink")
                             .font(.system(size: 14, weight: .semibold))
-
-                        if case .licensed = licenseViewModel.licenseState {
-                            Text("PRO")
-                                .font(.system(size: 9, weight: .heavy))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(Color.blue)
-                                .cornerRadius(4)
-                        }
 
                         Spacer()
                     }
@@ -113,13 +106,14 @@ struct ContentView: View {
                         NavigationLink(value: viewType) {
                             SidebarItemView(viewType: viewType)
                         }
+                        .accessibilityIdentifier("sidebar.\(viewType.uiTestID)")
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                         .listRowSeparator(.hidden)
                     }
                 }
             }
             .listStyle(.sidebar)
-            .navigationTitle("VoiceInk")
+            .navigationTitle("VoiceWink")
             .navigationSplitViewColumnWidth(210)
         } detail: {
             if let selectedView = selectedView {
@@ -146,16 +140,12 @@ struct ContentView: View {
                 switch destination {
                 case "Settings":
                     selectedView = .settings
-                case "AI Models":
+                case "Local Models":
                     selectedView = .models
-                case "VoiceInk Pro":
-                    selectedView = .license
                 case "History":
                     selectedView = .history
                 case "Permissions":
                     selectedView = .permissions
-                case "Enhancement":
-                    selectedView = .enhancement
                 case "Transcribe Audio":
                     selectedView = .transcribeAudio
                 case "Power Mode":
@@ -172,26 +162,31 @@ struct ContentView: View {
         switch viewType {
         case .metrics:
             MetricsView()
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         case .models:
             ModelManagementView()
-        case .enhancement:
-            EnhancementSettingsView()
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         case .transcribeAudio:
             AudioTranscribeView()
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         case .history:
             InlineHistoryView()
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         case .audioInput:
             AudioInputSettingsView()
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         case .dictionary:
             DictionarySettingsView(whisperPrompt: whisperModelManager.whisperPrompt)
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         case .powerMode:
             PowerModeView()
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         case .settings:
             SettingsView()
-        case .license:
-            LicenseManagementView()
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         case .permissions:
             PermissionsView()
+                .accessibilityIdentifier("detail.\(viewType.uiTestID)")
         }
     }
 }
@@ -216,4 +211,3 @@ private struct SidebarItemView: View {
         .padding(.horizontal, 2)
     }
 }
-

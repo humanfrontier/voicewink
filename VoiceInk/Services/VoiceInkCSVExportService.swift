@@ -1,7 +1,5 @@
-
 import Foundation
 import AppKit
-import SwiftData
 
 class VoiceInkCSVExportService {
     
@@ -10,7 +8,7 @@ class VoiceInkCSVExportService {
         
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [.commaSeparatedText]
-        savePanel.nameFieldStringValue = "VoiceInk-transcription.csv"
+        savePanel.nameFieldStringValue = "VoiceWink-transcription.csv"
         
         savePanel.begin { result in
             if result == .OK, let url = savePanel.url {
@@ -24,21 +22,17 @@ class VoiceInkCSVExportService {
     }
     
     private func generateCSV(for transcriptions: [Transcription]) -> String {
-        var csvString = "Original Transcript,Enhanced Transcript,Enhancement Model,Prompt Name,Transcription Model,Power Mode,Enhancement Time,Transcription Time,Timestamp,Duration\n"
+        var csvString = "Transcript,Transcription Model,Power Mode,Transcription Time,Timestamp,Duration\n"
 
         for transcription in transcriptions {
-            let originalText = escapeCSVString(transcription.text)
-            let enhancedText = escapeCSVString(transcription.enhancedText ?? "")
-            let enhancementModel = escapeCSVString(transcription.aiEnhancementModelName ?? "")
-            let promptName = escapeCSVString(transcription.promptName ?? "")
+            let transcriptText = escapeCSVString(transcription.text)
             let transcriptionModel = escapeCSVString(transcription.transcriptionModelName ?? "")
             let powerMode = escapeCSVString(powerModeDisplay(name: transcription.powerModeName, emoji: transcription.powerModeEmoji))
-            let enhancementTime = transcription.enhancementDuration ?? 0
             let transcriptionTime = transcription.transcriptionDuration ?? 0
             let timestamp = transcription.timestamp.ISO8601Format()
             let duration = transcription.duration
 
-            let row = "\(originalText),\(enhancedText),\(enhancementModel),\(promptName),\(transcriptionModel),\(powerMode),\(enhancementTime),\(transcriptionTime),\(timestamp),\(duration)\n"
+            let row = "\(transcriptText),\(transcriptionModel),\(powerMode),\(transcriptionTime),\(timestamp),\(duration)\n"
             csvString.append(row)
         }
 

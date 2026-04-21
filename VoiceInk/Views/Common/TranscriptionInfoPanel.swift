@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Reusable component that displays transcription Details and AI Request sections.
+/// Reusable component that displays transcription details.
 /// Used in both the inline history sliding panel and the separate history window's metadata view.
 struct TranscriptionInfoPanel: View {
     let transcription: Transcription
@@ -8,7 +8,6 @@ struct TranscriptionInfoPanel: View {
     var body: some View {
         Form {
             detailsSection
-            aiRequestSection
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -46,30 +45,6 @@ struct TranscriptionInfoPanel: View {
                 }
             }
 
-            if let aiModel = transcription.aiEnhancementModelName {
-                metadataRow(
-                    icon: "sparkles",
-                    label: "Enhancement Model",
-                    value: aiModel
-                )
-
-                if let duration = transcription.enhancementDuration {
-                    metadataRow(
-                        icon: "clock.fill",
-                        label: "Enhancement Time",
-                        value: duration.formatTiming()
-                    )
-                }
-            }
-
-            if let promptName = transcription.promptName {
-                metadataRow(
-                    icon: "text.bubble.fill",
-                    label: "Prompt",
-                    value: promptName
-                )
-            }
-
             if let powerModeValue = powerModeDisplay(
                 name: transcription.powerModeName,
                 emoji: transcription.powerModeEmoji
@@ -83,60 +58,6 @@ struct TranscriptionInfoPanel: View {
         } header: {
             Text("Details")
         }
-    }
-
-    // MARK: - AI Request Section
-
-    @ViewBuilder
-    private var aiRequestSection: some View {
-        if transcription.aiRequestSystemMessage != nil || transcription.aiRequestUserMessage != nil {
-            Section {
-                if let systemMsg = transcription.aiRequestSystemMessage, !systemMsg.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("System Prompt")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.secondary)
-                        Text(systemMsg)
-                            .font(.system(size: 11, weight: .regular, design: .monospaced))
-                            .lineSpacing(2)
-                            .textSelection(.enabled)
-                            .foregroundColor(.primary)
-                    }
-                }
-
-                if let userMsg = transcription.aiRequestUserMessage, !userMsg.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("User Message")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.secondary)
-                        Text(userMsg)
-                            .font(.system(size: 11, weight: .regular, design: .monospaced))
-                            .lineSpacing(2)
-                            .textSelection(.enabled)
-                            .foregroundColor(.primary)
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("AI Request")
-                    Spacer()
-                    CopyIconButton(textToCopy: fullRequestText)
-                }
-            }
-        }
-    }
-
-    // MARK: - Helpers
-
-    private var fullRequestText: String {
-        var parts: [String] = []
-        if let sys = transcription.aiRequestSystemMessage, !sys.isEmpty {
-            parts.append("System Prompt:\n\(sys)")
-        }
-        if let user = transcription.aiRequestUserMessage, !user.isEmpty {
-            parts.append("User Message:\n\(user)")
-        }
-        return parts.joined(separator: "\n\n")
     }
 
     private func metadataRow(icon: String, label: String, value: String) -> some View {

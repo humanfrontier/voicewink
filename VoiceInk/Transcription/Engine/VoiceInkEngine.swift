@@ -23,7 +23,6 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
     let modelContext: ModelContext
     internal let serviceRegistry: TranscriptionServiceRegistry
-    let enhancementService: AIEnhancementService?
     private let pipeline: TranscriptionPipeline
 
     let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "VoiceInkEngine")
@@ -31,34 +30,26 @@ class VoiceInkEngine: NSObject, ObservableObject {
     init(
         modelContext: ModelContext,
         whisperModelManager: WhisperModelManager,
-        transcriptionModelManager: TranscriptionModelManager,
-        enhancementService: AIEnhancementService? = nil
+        transcriptionModelManager: TranscriptionModelManager
     ) {
         self.modelContext = modelContext
         self.whisperModelManager = whisperModelManager
         self.transcriptionModelManager = transcriptionModelManager
-        self.enhancementService = enhancementService
 
-        let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk")
-        self.recordingsDirectory = appSupportDirectory.appendingPathComponent("Recordings")
+        self.recordingsDirectory = AppPaths.recordingsDirectory
 
         self.serviceRegistry = TranscriptionServiceRegistry(
             modelProvider: whisperModelManager,
-            modelsDirectory: whisperModelManager.modelsDirectory,
-            modelContext: modelContext
+            modelsDirectory: whisperModelManager.modelsDirectory
         )
         self.pipeline = TranscriptionPipeline(
             modelContext: modelContext,
-            serviceRegistry: serviceRegistry,
-            enhancementService: enhancementService
+            serviceRegistry: serviceRegistry
         )
 
         super.init()
 
-        if let enhancementService {
-            PowerModeSessionManager.shared.configure(engine: self, enhancementService: enhancementService)
-        }
+        PowerModeSessionManager.shared.configure(engine: self)
 
         setupNotifications()
         createRecordingsDirectoryIfNeeded()
@@ -70,10 +61,6 @@ class VoiceInkEngine: NSObject, ObservableObject {
         } catch {
             logger.error("❌ Error creating recordings directory: \(error.localizedDescription, privacy: .public)")
         }
-    }
-
-    func getEnhancementService() -> AIEnhancementService? {
-        return enhancementService
     }
 
     // MARK: - Toggle Record
@@ -119,7 +106,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         } else {
             logger.notice("toggleRecord: entering start-recording branch")
             guard transcriptionModelManager.currentTranscriptionModel != nil else {
-                NotificationManager.shared.showNotification(title: "No AI Model Selected", type: .error)
+                NotificationManager.shared.showNotification(title: "No Transcription Model Selected", type: .error)
                 return
             }
             shouldCancelRecording = false
@@ -195,12 +182,6 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                     try? await self.serviceRegistry.fluidAudioTranscriptionService.loadModel(for: fluidAudioModel)
                                 }
 
-                                if let enhancementService = await self.enhancementService {
-                                    await MainActor.run {
-                                        enhancementService.captureClipboardContext()
-                                    }
-                                    await enhancementService.captureScreenContext()
-                                }
                             }
 
                         } catch {
@@ -267,20 +248,10 @@ class VoiceInkEngine: NSObject, ObservableObject {
     func setupNotifications() {
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleLicenseStatusChanged),
-            name: .licenseStatusChanged,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
             selector: #selector(handlePromptChange),
             name: .promptDidChange,
             object: nil
         )
-    }
-
-    @objc func handleLicenseStatusChanged() {
-        pipeline.licenseViewModel = LicenseViewModel()
     }
 
     @objc func handlePromptChange() {

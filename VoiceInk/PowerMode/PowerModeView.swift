@@ -61,8 +61,6 @@ let commonEmojis = ["🏢", "🏠", "💼", "🎮", "📱", "📺", "🎵", "�
 
 struct PowerModeView: View {
     @StateObject private var powerModeManager = PowerModeManager.shared
-    @EnvironmentObject private var enhancementService: AIEnhancementService
-    @EnvironmentObject private var aiService: AIService
     @State private var configurationMode: ConfigurationMode?
     @State private var isPanelOpen = false
     @State private var panelID = UUID()
@@ -157,7 +155,7 @@ struct PowerModeView: View {
                                                         .font(.system(size: 20, weight: .medium))
                                                         .foregroundColor(.primary)
                                                     
-                                                    Text("Create first power mode to automate your VoiceInk workflow based on apps/website you are using")
+                                                    Text("Create first power mode to automate your VoiceWink workflow based on apps/website you are using")
                                                         .font(.system(size: 14))
                                                         .foregroundColor(.secondary)
                                                         .multilineTextAlignment(.center)

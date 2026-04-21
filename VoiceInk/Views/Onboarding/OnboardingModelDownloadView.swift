@@ -6,11 +6,11 @@ struct OnboardingModelDownloadView: View {
     @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
     @State private var scale: CGFloat = 0.8
     @State private var opacity: CGFloat = 0
-    @State private var isDownloading = false
     @State private var isModelSet = false
+    @State private var isBundledModelAvailable = false
     @State private var showTutorial = false
-    
-    private let turboModel = TranscriptionModelRegistry.models.first { $0.name == "ggml-large-v3-turbo-q5_0" } as! WhisperModel
+
+    private let starterModel = TranscriptionModelRegistry.models.first { $0.name == AppIdentity.bundledStarterWhisperModelName } as! WhisperModel
     
     var body: some View {
         ZStack {
@@ -47,12 +47,12 @@ struct OnboardingModelDownloadView: View {
                             
                             // Title and description
                             VStack(spacing: 12) {
-                                Text("Download AI Model")
+                                Text("Set Up Local Model")
                                     .font(.title2)
                                     .fontWeight(.bold)
                                     .foregroundColor(.white)
                                 
-                                Text("We'll download the optimized model to get you started.")
+                                Text("VoiceWink already includes a local Whisper starter model, so you can begin offline transcription immediately.")
                                     .font(.body)
                                     .foregroundColor(.white.opacity(0.7))
                                     .multilineTextAlignment(.center)
@@ -66,10 +66,10 @@ struct OnboardingModelDownloadView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             // Model name and details
                             VStack(alignment: .center, spacing: 8) {
-                                Text(turboModel.displayName)
+                                Text(starterModel.displayName)
                                     .font(.headline)
                                     .foregroundColor(.white)
-                                Text("\(turboModel.size) • \(turboModel.language)")
+                                Text("\(starterModel.size) • \(starterModel.language)")
                                     .font(.caption)
                                     .foregroundColor(.white.opacity(0.7))
                             }
@@ -80,19 +80,17 @@ struct OnboardingModelDownloadView: View {
                             
                             // Performance indicators in a more compact layout
                             HStack(spacing: 20) {
-                                performanceIndicator(label: "Speed", value: turboModel.speed)
-                                performanceIndicator(label: "Accuracy", value: turboModel.accuracy)
-                                ramUsageLabel(gb: turboModel.ramUsage)
+                                performanceIndicator(label: "Speed", value: starterModel.speed)
+                                performanceIndicator(label: "Accuracy", value: starterModel.accuracy)
+                                ramUsageLabel(gb: starterModel.ramUsage)
                             }
                             .frame(maxWidth: .infinity, alignment: .center)
-                            
-                            // Download progress
-                            if isDownloading {
-                                DownloadProgressView(
-                                    modelName: turboModel.name,
-                                    downloadProgress: whisperModelManager.downloadProgress
-                                )
-                                .transition(.opacity)
+
+                            if !isBundledModelAvailable {
+                                Text("The bundled starter model is missing from this build. Rebuild VoiceWink to restore the offline baseline.")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         .padding(24)
@@ -117,7 +115,7 @@ struct OnboardingModelDownloadView: View {
                                     .cornerRadius(25)
                             }
                             .buttonStyle(ScaleButtonStyle())
-                            .disabled(isDownloading)
+                            .disabled(!isModelSet && !isBundledModelAvailable)
                             
                             if !isModelSet {
                                 SkipButton(text: "Skip for now") {
@@ -151,9 +149,8 @@ struct OnboardingModelDownloadView: View {
     }
     
     private func checkModelStatus() {
-        if whisperModelManager.availableModels.contains(where: { $0.name == turboModel.name }) {
-            isModelSet = transcriptionModelManager.currentTranscriptionModel?.name == turboModel.name
-        }
+        isBundledModelAvailable = whisperModelManager.availableModels.contains(where: { $0.name == starterModel.name })
+        isModelSet = transcriptionModelManager.currentTranscriptionModel?.name == starterModel.name
     }
 
     private func handleAction() {
@@ -161,27 +158,11 @@ struct OnboardingModelDownloadView: View {
             withAnimation {
                 showTutorial = true
             }
-        } else if whisperModelManager.availableModels.contains(where: { $0.name == turboModel.name }) {
-            if let modelToSet = transcriptionModelManager.allAvailableModels.first(where: { $0.name == turboModel.name }) {
-                Task {
-                    transcriptionModelManager.setDefaultTranscriptionModel(modelToSet)
-                    withAnimation {
-                        isModelSet = true
-                    }
-                }
-            }
-        } else {
-            withAnimation {
-                isDownloading = true
-            }
+        } else if let modelToSet = transcriptionModelManager.allAvailableModels.first(where: { $0.name == starterModel.name }) {
             Task {
-                await whisperModelManager.downloadModel(turboModel)
-                if let modelToSet = transcriptionModelManager.allAvailableModels.first(where: { $0.name == turboModel.name }) {
-                    transcriptionModelManager.setDefaultTranscriptionModel(modelToSet)
-                    withAnimation {
-                        isModelSet = true
-                        isDownloading = false
-                    }
+                transcriptionModelManager.setDefaultTranscriptionModel(modelToSet)
+                withAnimation {
+                    isModelSet = true
                 }
             }
         }
@@ -190,12 +171,10 @@ struct OnboardingModelDownloadView: View {
     private func getButtonTitle() -> String {
         if isModelSet {
             return "Continue"
-        } else if isDownloading {
-            return "Downloading..."
-        } else if whisperModelManager.availableModels.contains(where: { $0.name == turboModel.name }) {
-            return "Set as Default"
+        } else if isBundledModelAvailable {
+            return "Use Bundled Model"
         } else {
-            return "Download Model"
+            return "Starter Model Missing"
         }
     }
     

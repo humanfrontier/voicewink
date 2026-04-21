@@ -7,23 +7,9 @@ struct AudioFileRow: View {
     let onRemove: () -> Void
     let onRetry: () -> Void
 
-    @State private var selectedTab: TranscriptionTab = .original
-
-    private var displayText: String {
-        switch selectedTab {
-        case .original:
-            return item.transcription?.text ?? ""
-        case .enhanced:
-            return item.transcription?.enhancedText ?? ""
-        }
-    }
-
     /// Text for copy/save — matches visible content regardless of expansion state.
     private var actionText: String {
-        if isExpanded {
-            return displayText
-        }
-        return item.transcription?.enhancedText ?? item.transcription?.text ?? ""
+        item.transcription?.text ?? ""
     }
 
     var body: some View {
@@ -101,7 +87,7 @@ struct AudioFileRow: View {
                 .truncationMode(.middle)
 
             if !isExpanded, let transcription = item.transcription {
-                Text(transcription.enhancedText ?? transcription.text)
+                Text(transcription.text)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
@@ -131,16 +117,8 @@ struct AudioFileRow: View {
         .onTapGesture { onToggleExpand() }
 
         if isExpanded, let transcription = item.transcription {
-            if transcription.enhancedText != nil {
-                HStack(spacing: 4) {
-                    tabButton(tab: .original)
-                    tabButton(tab: .enhanced)
-                    Spacer()
-                }
-            }
-
             ScrollView {
-                Text(displayText)
+                Text(transcription.text)
                     .font(.body)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -153,31 +131,9 @@ struct AudioFileRow: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                if let prompt = transcription.promptName {
-                    Label(prompt, systemImage: "sparkles")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
                 Spacer()
             }
         }
-    }
-
-    private func tabButton(tab: TranscriptionTab) -> some View {
-        Button {
-            selectedTab = tab
-        } label: {
-            Text(tab.rawValue)
-                .font(.subheadline.weight(selectedTab == tab ? .semibold : .regular))
-                .foregroundColor(selectedTab == tab ? .accentColor : .secondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(selectedTab == tab ? Color.accentColor.opacity(0.12) : Color.clear)
-                )
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Failed

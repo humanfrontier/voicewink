@@ -3,12 +3,12 @@ import Foundation
 enum TranscriptionModelRegistry {
 
     static var models: [any TranscriptionModel] {
-        return predefinedModels + CustomCloudModelManager.shared.customModels
+        predefinedModels
     }
     
     private static let predefinedModels: [any TranscriptionModel] = {
-        let nonCloudModels: [any TranscriptionModel] = [
-            // Native Apple Model
+        let localModels: [any TranscriptionModel] = [
+            // Native Apple model
             NativeAppleModel(
                 name: "apple-speech",
                 displayName: "Apple Speech",
@@ -17,7 +17,7 @@ enum TranscriptionModelRegistry {
                 supportedLanguages: LanguageDictionary.forProvider(isMultilingual: true, provider: .nativeApple)
             ),
 
-            // Parakeet Models
+            // Parakeet models
             FluidAudioModel(
                 name: "parakeet-tdt-0.6b-v2",
                 displayName: "Parakeet V2",
@@ -41,7 +41,7 @@ enum TranscriptionModelRegistry {
                 supportedLanguages: LanguageDictionary.forProvider(isMultilingual: true, provider: .fluidAudio)
             ),
 
-            // Local Models
+            // Whisper models
             WhisperModel(
                 name: "ggml-tiny",
                 displayName: "Tiny",
@@ -124,7 +124,6 @@ enum TranscriptionModelRegistry {
             )
         ]
 
-        let cloudModels: [any TranscriptionModel] = CloudProviderRegistry.allProviders.flatMap { $0.models }
-        return nonCloudModels + cloudModels
+        return localModels
     }()
 }

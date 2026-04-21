@@ -4,7 +4,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var stateProvider: S
     @ObservedObject var recorder: Recorder
     @EnvironmentObject var windowManager: MiniWindowManager
-    @EnvironmentObject private var enhancementService: AIEnhancementService
+    @ObservedObject private var powerModeManager = PowerModeManager.shared
     @AppStorage("showLiveTextPreview") private var showLiveTextPreview = true
 
     @State private var activePopover: ActivePopoverState = .none
@@ -25,30 +25,25 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     }
 
     private var controlBar: some View {
-        HStack(spacing: 0) {
-            RecorderPromptButton(
-                activePopover: $activePopover,
-                buttonSize: 22,
-                padding: EdgeInsets()
-            )
-            .padding(.leading, 12)
-
-            Spacer(minLength: 0)
-
+        ZStack {
             RecorderStatusDisplay(
                 currentState: stateProvider.recordingState,
                 audioMeter: recorder.audioMeter
             )
+            .frame(maxWidth: .infinity, alignment: .center)
 
-            Spacer(minLength: 0)
-
-            RecorderPowerModeButton(
-                activePopover: $activePopover,
-                buttonSize: 22,
-                padding: EdgeInsets()
-            )
-            .padding(.trailing, 12)
+            if !powerModeManager.enabledConfigurations.isEmpty {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    RecorderPowerModeButton(
+                        activePopover: $activePopover,
+                        buttonSize: 22,
+                        padding: EdgeInsets()
+                    )
+                }
+            }
         }
+        .padding(.horizontal, 12)
         .frame(height: controlBarHeight)
     }
 

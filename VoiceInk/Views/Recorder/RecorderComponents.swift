@@ -4,7 +4,6 @@ import SwiftUI
 
 enum ActivePopoverState {
     case none
-    case enhancement
     case power
 }
 
@@ -140,70 +139,6 @@ struct ProgressAnimation: View {
     }
 }
 
-// MARK: - Enhancement Prompt Button
-
-struct RecorderPromptButton: View {
-    @EnvironmentObject private var enhancementService: AIEnhancementService
-    @Binding var activePopover: ActivePopoverState
-    let buttonSize: CGFloat
-    let padding: EdgeInsets
-
-    @State private var isHoveringButton: Bool = false
-    @State private var isHoveringPopover: Bool = false
-    @State private var dismissWorkItem: DispatchWorkItem?
-
-    init(activePopover: Binding<ActivePopoverState>, buttonSize: CGFloat = 28, padding: EdgeInsets = EdgeInsets(top: 0, leading: 7, bottom: 0, trailing: 0)) {
-        self._activePopover = activePopover
-        self.buttonSize = buttonSize
-        self.padding = padding
-    }
-
-    var body: some View {
-        RecorderToggleButton(
-            isEnabled: enhancementService.isEnhancementEnabled,
-            icon: enhancementService.activePrompt?.icon ?? enhancementService.allPrompts.first(where: { $0.id == PredefinedPrompts.defaultPromptId })?.icon ?? "checkmark.seal.fill",
-            disabled: false
-        ) {
-            if enhancementService.isEnhancementEnabled {
-                activePopover = activePopover == .enhancement ? .none : .enhancement
-            } else {
-                enhancementService.isEnhancementEnabled = true
-            }
-        }
-        .frame(width: buttonSize)
-        .padding(padding)
-        .onHover {
-            isHoveringButton = $0
-            syncPopoverVisibility()
-        }
-        .popover(isPresented: .constant(activePopover == .enhancement), arrowEdge: .bottom) {
-            EnhancementPromptPopover()
-                .environmentObject(enhancementService)
-                .onHover {
-                    isHoveringPopover = $0
-                    syncPopoverVisibility()
-                }
-        }
-    }
-
-    private func syncPopoverVisibility() {
-        if isHoveringButton || isHoveringPopover {
-            dismissWorkItem?.cancel()
-            dismissWorkItem = nil
-            activePopover = .enhancement
-        } else {
-            dismissWorkItem?.cancel()
-            let work = DispatchWorkItem { [activePopoverBinding = $activePopover] in
-                if activePopoverBinding.wrappedValue == .enhancement {
-                    activePopoverBinding.wrappedValue = .none
-                }
-            }
-            dismissWorkItem = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
-        }
-    }
-}
-
 // MARK: - Power Mode Button
 
 struct RecorderPowerModeButton: View {
@@ -314,9 +249,7 @@ struct RecorderStatusDisplay: View {
 
     var body: some View {
         Group {
-            if currentState == .enhancing {
-                ProcessingStatusDisplay(mode: .enhancing, color: .white).transition(.opacity)
-            } else if currentState == .transcribing {
+            if currentState == .transcribing {
                 ProcessingStatusDisplay(mode: .transcribing, color: .white).transition(.opacity)
             } else if currentState == .recording {
                 AudioVisualizer(audioMeter: audioMeter, color: .white, isActive: true)

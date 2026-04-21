@@ -50,10 +50,7 @@ class CustomSoundManager: ObservableObject {
     }
 
     private func customSoundsDirectory() -> URL? {
-        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            return nil
-        }
-        return appSupport.appendingPathComponent("VoiceInk/CustomSounds")
+        AppPaths.customSoundsDirectory
     }
 
     private func createCustomSoundsDirectoryIfNeeded() {

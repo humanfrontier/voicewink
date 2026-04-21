@@ -8,6 +8,29 @@
 import XCTest
 
 final class VoiceInkUITests: XCTestCase {
+    private let appSupportOverrideEnvironmentKey = "VOICEWINK_APP_SUPPORT_OVERRIDE"
+
+    private func launchApp(environment: [String: String] = [:]) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-hasCompletedOnboarding", "YES",
+            "-autoUpdateCheck", "NO",
+            "-ApplePersistenceIgnoreState", "YES",
+        ]
+        app.launchEnvironment.merge(environment) { _, newValue in newValue }
+        app.launch()
+        return app
+    }
+
+    private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)[identifier]
+    }
+
+    private func openSidebarItem(_ identifier: String, in app: XCUIApplication) {
+        let item = element(identifier, in: app)
+        XCTAssertTrue(item.waitForExistence(timeout: 10), "Missing sidebar item \(identifier)")
+        item.click()
+    }
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
@@ -24,11 +47,68 @@ final class VoiceInkUITests: XCTestCase {
 
     @MainActor
     func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        XCTAssertFalse(element("sidebar.license", in: app).exists)
+        XCTAssertFalse(element("sidebar.enhancement", in: app).exists)
+        XCTAssertTrue(app.staticTexts["Why VoiceWink Exists"].waitForExistence(timeout: 10))
+
+        openSidebarItem("sidebar.transcribeAudio", in: app)
+        XCTAssertTrue(app.staticTexts["Drop audio or video files here"].waitForExistence(timeout: 10))
+
+        openSidebarItem("sidebar.history", in: app)
+        XCTAssertTrue(
+            app.textFields["Search transcriptions..."].waitForExistence(timeout: 10) ||
+            app.staticTexts["No transcriptions yet"].waitForExistence(timeout: 10)
+        )
+
+        openSidebarItem("sidebar.audioInput", in: app)
+        XCTAssertTrue(element("audioInput.inputModeLabel", in: app).waitForExistence(timeout: 10))
+
+        openSidebarItem("sidebar.permissions", in: app)
+        XCTAssertTrue(app.staticTexts["Microphone Access"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["Screen Recording Access"].exists)
+
+        openSidebarItem("sidebar.settings", in: app)
+        XCTAssertTrue(app.staticTexts["Shortcut 1"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.switches["Show Announcements"].exists)
+        XCTAssertFalse(app.staticTexts["Paste Last Transcription (Enhanced)"].exists)
+    }
+
+    @MainActor
+    func testVoiceWinkUsesOnlyItsConfiguredHistoryStore() throws {
+        let rootDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let currentSupportDirectory = rootDirectory.appendingPathComponent("VoiceWinkSupport", isDirectory: true)
+
+        defer { try? FileManager.default.removeItem(at: rootDirectory) }
+
+        let app = launchApp(environment: [
+            appSupportOverrideEnvironmentKey: currentSupportDirectory.path,
+        ])
+
+        openSidebarItem("sidebar.history", in: app)
+        XCTAssertTrue(app.textFields["Search transcriptions..."].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["No transcriptions yet"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testModelManagementShowsOnlyLocalTranscriptionProviders() throws {
+        let app = launchApp()
+
+        openSidebarItem("sidebar.models", in: app)
+
+        XCTAssertTrue(element("models.filter.recommended", in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(element("models.filter.local", in: app).exists)
+        XCTAssertFalse(app.buttons["Cloud"].exists)
+        XCTAssertFalse(app.buttons["Custom"].exists)
+
+        XCTAssertTrue(app.staticTexts["Base (English)"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Parakeet V2"].exists)
+        XCTAssertTrue(app.staticTexts["Large v3 Turbo (Quantized)"].exists)
+        XCTAssertFalse(app.staticTexts["Whisper Large v3 Turbo (Groq)"].exists)
+
+        element("models.filter.local", in: app).click()
+        XCTAssertTrue(element("models.importLocal", in: app).waitForExistence(timeout: 10))
     }
 
     @MainActor

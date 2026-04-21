@@ -8,10 +8,21 @@ extension KeyboardShortcuts.Name {
     static let toggleMiniRecorder = Self("toggleMiniRecorder")
     static let toggleMiniRecorder2 = Self("toggleMiniRecorder2")
     static let pasteLastTranscription = Self("pasteLastTranscription")
-    static let pasteLastEnhancement = Self("pasteLastEnhancement")
     static let retryLastTranscription = Self("retryLastTranscription")
     static let openHistoryWindow = Self("openHistoryWindow")
     static let quickAddToDictionary = Self("quickAddToDictionary")
+}
+
+@MainActor
+protocol RecorderHotkeyControlling: AnyObject {
+    var isMiniRecorderVisible: Bool { get }
+    func toggleRecorderFromHotkey() async
+}
+
+extension RecorderUIManager: RecorderHotkeyControlling {
+    func toggleRecorderFromHotkey() async {
+        await toggleMiniRecorder()
+    }
 }
 
 @MainActor
@@ -55,13 +66,14 @@ class HotkeyManager: ObservableObject {
     
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "HotkeyManager")
     private var engine: VoiceInkEngine
-    private var recorderUIManager: RecorderUIManager
-    private var miniRecorderShortcutManager: MiniRecorderShortcutManager
+    private var recorderUIManager: any RecorderHotkeyControlling
+    private var miniRecorderShortcutManager: MiniRecorderShortcutManager?
     private var powerModeShortcutManager: PowerModeShortcutManager
+    private let monitoringEnabled: Bool
 
     // MARK: - Helper Properties
     private var canProcessHotkeyAction: Bool {
-        engine.recordingState != .transcribing && engine.recordingState != .enhancing && engine.recordingState != .busy
+        engine.recordingState != .transcribing && engine.recordingState != .busy
     }
     
     // NSEvent monitoring for modifier keys
@@ -148,7 +160,11 @@ class HotkeyManager: ObservableObject {
         }
     }
     
-    init(engine: VoiceInkEngine, recorderUIManager: RecorderUIManager) {
+    init(
+        engine: VoiceInkEngine,
+        recorderUIManager: any RecorderHotkeyControlling,
+        monitoringEnabled: Bool = true
+    ) {
         self.selectedHotkey1 = HotkeyOption(rawValue: UserDefaults.standard.string(forKey: "selectedHotkey1") ?? "") ?? .rightCommand
         self.selectedHotkey2 = HotkeyOption(rawValue: UserDefaults.standard.string(forKey: "selectedHotkey2") ?? "") ?? .none
 
@@ -160,7 +176,15 @@ class HotkeyManager: ObservableObject {
 
         self.engine = engine
         self.recorderUIManager = recorderUIManager
-        self.miniRecorderShortcutManager = MiniRecorderShortcutManager(engine: engine, recorderUIManager: recorderUIManager)
+        self.monitoringEnabled = monitoringEnabled
+        if let recorderUIManager = recorderUIManager as? RecorderUIManager {
+            self.miniRecorderShortcutManager = MiniRecorderShortcutManager(
+                engine: engine,
+                recorderUIManager: recorderUIManager
+            )
+        } else {
+            self.miniRecorderShortcutManager = nil
+        }
         self.powerModeShortcutManager = PowerModeShortcutManager(engine: engine)
 
         KeyboardShortcuts.onKeyUp(for: .pasteLastTranscription) { [weak self] in
@@ -170,21 +194,13 @@ class HotkeyManager: ObservableObject {
             }
         }
 
-        KeyboardShortcuts.onKeyUp(for: .pasteLastEnhancement) { [weak self] in
-            guard let self = self else { return }
-            Task { @MainActor in
-                LastTranscriptionService.pasteLastEnhancement(from: self.engine.modelContext)
-            }
-        }
-
         KeyboardShortcuts.onKeyUp(for: .retryLastTranscription) { [weak self] in
             guard let self = self else { return }
             Task { @MainActor in
                 LastTranscriptionService.retryLastTranscription(
                     from: self.engine.modelContext,
                     transcriptionModelManager: self.engine.transcriptionModelManager,
-                    serviceRegistry: self.engine.serviceRegistry,
-                    enhancementService: self.engine.enhancementService
+                    serviceRegistry: self.engine.serviceRegistry
                 )
             }
         }
@@ -206,13 +222,17 @@ class HotkeyManager: ObservableObject {
             }
         }
 
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            self.setupHotkeyMonitoring()
+        if monitoringEnabled {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                self.setupHotkeyMonitoring()
+            }
         }
     }
     
     private func setupHotkeyMonitoring() {
+        guard monitoringEnabled else { return }
+
         removeAllMonitoring()
         
         setupModifierKeyMonitoring()
@@ -257,7 +277,7 @@ class HotkeyManager: ObservableObject {
                     
                     Task { @MainActor in
                         guard self.canProcessHotkeyAction else { return }
-                        await self.recorderUIManager.toggleMiniRecorder()
+                        await self.recorderUIManager.toggleRecorderFromHotkey()
                     }
                 } catch {
                     // Cancelled
@@ -315,6 +335,9 @@ class HotkeyManager: ObservableObject {
         }
         middleClickMonitors = []
         middleClickTask?.cancel()
+        middleClickTask = nil
+        fnDebounceTask?.cancel()
+        fnDebounceTask = nil
         
         resetKeyStates()
     }
@@ -392,21 +415,21 @@ class HotkeyManager: ObservableObject {
                     isHandsFreeMode = false
                     guard canProcessHotkeyAction else { return }
                     logger.notice("processKeyPress: toggling mini recorder (hands-free toggle)")
-                    await recorderUIManager.toggleMiniRecorder()
+                    await recorderUIManager.toggleRecorderFromHotkey()
                     return
                 }
 
                 if !recorderUIManager.isMiniRecorderVisible {
                     guard canProcessHotkeyAction else { return }
                     logger.notice("processKeyPress: toggling mini recorder (key down while not visible)")
-                    await recorderUIManager.toggleMiniRecorder()
+                    await recorderUIManager.toggleRecorderFromHotkey()
                 }
 
             case .pushToTalk:
                 if !recorderUIManager.isMiniRecorderVisible {
                     guard canProcessHotkeyAction else { return }
                     logger.notice("processKeyPress: starting recording (push-to-talk key down)")
-                    await recorderUIManager.toggleMiniRecorder()
+                    await recorderUIManager.toggleRecorderFromHotkey()
                 }
             }
         } else {
@@ -418,7 +441,7 @@ class HotkeyManager: ObservableObject {
                 if recorderUIManager.isMiniRecorderVisible {
                     guard canProcessHotkeyAction else { return }
                     logger.notice("processKeyPress: stopping recording (push-to-talk key up)")
-                    await recorderUIManager.toggleMiniRecorder()
+                    await recorderUIManager.toggleRecorderFromHotkey()
                 }
 
             case .hybrid:
@@ -426,7 +449,7 @@ class HotkeyManager: ObservableObject {
                 if pressDuration >= Self.hybridPressThreshold && engine.recordingState == .recording {
                     guard canProcessHotkeyAction else { return }
                     logger.notice("processKeyPress: stopping recording (hybrid push-to-talk, duration=\(pressDuration, privacy: .public)s)")
-                    await recorderUIManager.toggleMiniRecorder()
+                    await recorderUIManager.toggleRecorderFromHotkey()
                 } else {
                     isHandsFreeMode = true
                 }
@@ -453,21 +476,21 @@ class HotkeyManager: ObservableObject {
                 isShortcutHandsFreeMode = false
                 guard canProcessHotkeyAction else { return }
                 logger.notice("handleCustomShortcutKeyDown: toggling mini recorder (hands-free toggle)")
-                await recorderUIManager.toggleMiniRecorder()
+                await recorderUIManager.toggleRecorderFromHotkey()
                 return
             }
 
             if !recorderUIManager.isMiniRecorderVisible {
                 guard canProcessHotkeyAction else { return }
                 logger.notice("handleCustomShortcutKeyDown: toggling mini recorder (key down while not visible)")
-                await recorderUIManager.toggleMiniRecorder()
+                await recorderUIManager.toggleRecorderFromHotkey()
             }
 
         case .pushToTalk:
             if !recorderUIManager.isMiniRecorderVisible {
                 guard canProcessHotkeyAction else { return }
                 logger.notice("handleCustomShortcutKeyDown: starting recording (push-to-talk key down)")
-                await recorderUIManager.toggleMiniRecorder()
+                await recorderUIManager.toggleRecorderFromHotkey()
             }
         }
     }
@@ -484,7 +507,7 @@ class HotkeyManager: ObservableObject {
             if recorderUIManager.isMiniRecorderVisible {
                 guard canProcessHotkeyAction else { return }
                 logger.notice("handleCustomShortcutKeyUp: stopping recording (push-to-talk key up)")
-                await recorderUIManager.toggleMiniRecorder()
+                await recorderUIManager.toggleRecorderFromHotkey()
             }
 
         case .hybrid:
@@ -492,13 +515,21 @@ class HotkeyManager: ObservableObject {
             if pressDuration >= Self.hybridPressThreshold && engine.recordingState == .recording {
                 guard canProcessHotkeyAction else { return }
                 logger.notice("handleCustomShortcutKeyUp: stopping recording (hybrid push-to-talk, duration=\(pressDuration, privacy: .public)s)")
-                await recorderUIManager.toggleMiniRecorder()
+                await recorderUIManager.toggleRecorderFromHotkey()
             } else {
                 isShortcutHandsFreeMode = true
             }
         }
 
         shortcutKeyPressEventTime = nil
+    }
+
+    func simulatePrimaryHotkeyCycle(pressDuration: TimeInterval = 0) async {
+        guard selectedHotkey1 != .none else { return }
+
+        let eventTime = ProcessInfo.processInfo.systemUptime
+        await processKeyPress(isKeyPressed: true, eventTime: eventTime, mode: hotkeyMode1)
+        await processKeyPress(isKeyPressed: false, eventTime: eventTime + pressDuration, mode: hotkeyMode1)
     }
     
     // Computed property for backward compatibility with UI
@@ -516,7 +547,7 @@ class HotkeyManager: ObservableObject {
     }
     
     deinit {
-        Task { @MainActor in
+        MainActor.assumeIsolated {
             removeAllMonitoring()
         }
     }

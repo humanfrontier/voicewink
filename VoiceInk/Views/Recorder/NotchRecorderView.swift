@@ -4,7 +4,6 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var stateProvider: S
     @ObservedObject var recorder: Recorder
     @EnvironmentObject var windowManager: NotchWindowManager
-    @EnvironmentObject private var enhancementService: AIEnhancementService
     @AppStorage("showLiveTextPreview") private var showLiveTextPreview = true
     @ObservedObject private var powerModeManager = PowerModeManager.shared
     @State private var activePopover: ActivePopoverState = .none
@@ -22,7 +21,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         case .recording:
             let shouldShowLive = showLiveTextPreview && !stateProvider.partialTranscript.isEmpty
             return shouldShowLive ? .liveText : .active
-        case .transcribing, .enhancing:
+        case .transcribing:
             return .active
         default:
             return .collapsed
@@ -120,31 +119,28 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         ZStack {
             Color.clear
 
-            HStack(spacing: 10) {
-                RecorderPromptButton(activePopover: $activePopover, buttonSize: 20, padding: EdgeInsets())
-                RecorderPowerModeButton(activePopover: $activePopover, buttonSize: 20, padding: EdgeInsets())
-                Spacer(minLength: 0)
-            }
-            .padding(.leading, displayState == .liveText ? 18 : 14)
-            .frame(width: sideExpansion)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .opacity(displayState != .collapsed ? 1 : 0)
-            .animation(
-                displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,
-                value: displayState
-            )
-
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                RecorderStatusDisplay(
-                    currentState: stateProvider.recordingState,
-                    audioMeter: recorder.audioMeter,
-                    menuBarHeight: notchHeight
+            if !powerModeManager.enabledConfigurations.isEmpty {
+                HStack(spacing: 10) {
+                    RecorderPowerModeButton(activePopover: $activePopover, buttonSize: 20, padding: EdgeInsets())
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, displayState == .liveText ? 18 : 14)
+                .frame(width: sideExpansion)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .opacity(displayState != .collapsed ? 1 : 0)
+                .animation(
+                    displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,
+                    value: displayState
                 )
             }
-            .padding(.trailing, displayState == .liveText ? 18 : 14)
-            .frame(width: sideExpansion)
-            .frame(maxWidth: .infinity, alignment: .trailing)
+
+            RecorderStatusDisplay(
+                currentState: stateProvider.recordingState,
+                audioMeter: recorder.audioMeter,
+                menuBarHeight: notchHeight
+            )
+            .padding(.horizontal, displayState == .liveText ? 18 : 14)
+            .frame(maxWidth: .infinity, alignment: .center)
             .opacity(displayState != .collapsed ? 1 : 0)
             .animation(
                 displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,

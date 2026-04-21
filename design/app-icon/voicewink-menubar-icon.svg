@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <mask id="menu-head-cutouts">
+      <rect x="346" y="178" width="332" height="412" rx="166" fill="#FFF"/>
+      <circle cx="442" cy="338" r="28" fill="#000"/>
+      <rect x="520" y="320" width="136" height="34" rx="17" transform="rotate(-8 520 320)" fill="#000"/>
+    </mask>
+  </defs>
+
+  <rect x="346" y="178" width="332" height="412" rx="166" fill="#000" mask="url(#menu-head-cutouts)"/>
+
+  <path
+    d="M324 462V614C324 728 407 812 512 812C617 812 700 728 700 614V462"
+    stroke="#000"
+    stroke-width="52"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <rect x="486" y="748" width="52" height="86" rx="26" fill="#000"/>
+
+  <path
+    d="M410 874C454 900 570 900 614 874"
+    stroke="#000"
+    stroke-width="52"
+    stroke-linecap="round"
+  />
+</svg>

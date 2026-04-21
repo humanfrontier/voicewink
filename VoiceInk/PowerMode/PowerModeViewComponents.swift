@@ -52,7 +52,6 @@ struct PowerModeEmptyStateView: View {
 struct PowerModeConfigurationsGrid: View {
     @ObservedObject var powerModeManager: PowerModeManager
     let onEditConfig: (PowerModeConfig) -> Void
-    @EnvironmentObject var enhancementService: AIEnhancementService
     
     var body: some View {
         LazyVStack(spacing: 12) {
@@ -93,17 +92,10 @@ struct ConfigurationRow: View {
     let isEditing: Bool
     let powerModeManager: PowerModeManager
     let onEditConfig: (PowerModeConfig) -> Void
-    @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var transcriptionModelManager: TranscriptionModelManager
     @State private var isHovering = false
     
     private let maxAppIconsToShow = 5
-    
-    private var selectedPrompt: CustomPrompt? {
-        guard let promptId = config.selectedPrompt,
-              let uuid = UUID(uuidString: promptId) else { return nil }
-        return enhancementService.allPrompts.first { $0.id == uuid }
-    }
     
     private var selectedModel: String? {
         if let modelName = config.selectedTranscriptionModelName,
@@ -211,7 +203,7 @@ struct ConfigurationRow: View {
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
             
-            if selectedModel != nil || selectedLanguage != nil || config.isAIEnhancementEnabled || config.autoSendKey.isEnabled {
+            if selectedModel != "Default" || selectedLanguage != "Default" || config.autoSendKey.isEnabled {
                 Divider()
                 
                 HStack(spacing: 8) {
@@ -249,23 +241,6 @@ struct ConfigurationRow: View {
                         )
                     }
                     
-                    if config.isAIEnhancementEnabled, let modelName = config.selectedAIModel, !modelName.isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "cpu")
-                                .font(.system(size: 10))
-                            Text(modelName.count > 20 ? String(modelName.prefix(18)) + "..." : modelName)
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule()
-                            .fill(Color(NSColor.controlBackgroundColor)))
-                        .overlay(
-                            Capsule()
-                                .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
-                        )
-                    }
-                    
                     if config.autoSendKey.isEnabled {
                         HStack(spacing: 4) {
                             Image(systemName: "keyboard")
@@ -282,37 +257,6 @@ struct ConfigurationRow: View {
                                 .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
                         )
                     }
-                    if config.isAIEnhancementEnabled {
-                        if config.useScreenCapture {
-                            HStack(spacing: 4) {
-                                Image(systemName: "camera.viewfinder")
-                                    .font(.system(size: 10))
-                                Text("Context Awareness")
-                                    .font(.caption)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule()
-                                .fill(Color(NSColor.controlBackgroundColor)))
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
-                            )
-                        }
-                        
-                        HStack(spacing: 4) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 10))
-                            Text(selectedPrompt?.title ?? "AI")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule()
-                            .fill(Color.accentColor.opacity(0.1)))
-                        .foregroundColor(.accentColor)
-                    }
-
                     Spacer()
                 }
                 

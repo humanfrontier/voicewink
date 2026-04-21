@@ -115,8 +115,7 @@ class AudioTranscriptionManager: ObservableObject {
     private func processItem(_ item: AudioFileQueueItem, modelContext: ModelContext, engine: VoiceInkEngine) async {
         let serviceRegistry = TranscriptionServiceRegistry(
             modelProvider: engine.whisperModelManager,
-            modelsDirectory: engine.whisperModelManager.modelsDirectory,
-            modelContext: modelContext
+            modelsDirectory: engine.whisperModelManager.modelsDirectory
         )
 
         do {
@@ -140,9 +139,7 @@ class AudioTranscriptionManager: ObservableObject {
             let audioAsset = AVURLAsset(url: item.url)
             let duration = CMTimeGetSeconds(try await audioAsset.load(.duration))
 
-            let recordingsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("com.prakashjoshipax.VoiceInk")
-                .appendingPathComponent("Recordings")
+            let recordingsDirectory = AppPaths.recordingsDirectory
 
             let fileName = "transcribed_\(UUID().uuidString).wav"
             let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
@@ -171,56 +168,15 @@ class AudioTranscriptionManager: ObservableObject {
             text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
             try Task.checkCancellation()
 
-            // Handle enhancement if enabled
-            var transcription: Transcription
-
-            if let enhancementService = engine.enhancementService,
-               enhancementService.isEnhancementEnabled,
-               enhancementService.isConfigured {
-                item.status = .processing(phase: .enhancing)
-                do {
-                    let (enhancedText, enhancementDuration, promptName) = try await enhancementService.enhance(text)
-                    transcription = Transcription(
-                        text: text,
-                        duration: duration,
-                        enhancedText: enhancedText,
-                        audioFileURL: permanentURL.absoluteString,
-                        transcriptionModelName: currentModel.displayName,
-                        aiEnhancementModelName: enhancementService.getAIService()?.currentModel,
-                        promptName: promptName,
-                        transcriptionDuration: transcriptionDuration,
-                        enhancementDuration: enhancementDuration,
-                        aiRequestSystemMessage: enhancementService.lastSystemMessageSent,
-                        aiRequestUserMessage: enhancementService.lastUserMessageSent,
-                        powerModeName: powerModeName,
-                        powerModeEmoji: powerModeEmoji
-                    )
-                } catch {
-                    logger.error("Enhancement failed: \(error.localizedDescription, privacy: .public)")
-                    transcription = Transcription(
-                        text: text,
-                        duration: duration,
-                        enhancedText: "Enhancement failed: \(error.localizedDescription)",
-                        audioFileURL: permanentURL.absoluteString,
-                        transcriptionModelName: currentModel.displayName,
-                        promptName: nil,
-                        transcriptionDuration: transcriptionDuration,
-                        powerModeName: powerModeName,
-                        powerModeEmoji: powerModeEmoji
-                    )
-                }
-            } else {
-                transcription = Transcription(
-                    text: text,
-                    duration: duration,
-                    audioFileURL: permanentURL.absoluteString,
-                    transcriptionModelName: currentModel.displayName,
-                    promptName: nil,
-                    transcriptionDuration: transcriptionDuration,
-                    powerModeName: powerModeName,
-                    powerModeEmoji: powerModeEmoji
-                )
-            }
+            let transcription = Transcription(
+                text: text,
+                duration: duration,
+                audioFileURL: permanentURL.absoluteString,
+                transcriptionModelName: currentModel.displayName,
+                transcriptionDuration: transcriptionDuration,
+                powerModeName: powerModeName,
+                powerModeEmoji: powerModeEmoji
+            )
 
             modelContext.insert(transcription)
             try modelContext.save()

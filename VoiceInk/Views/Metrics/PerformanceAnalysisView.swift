@@ -12,9 +12,7 @@ struct PerformanceAnalyzer {
         let totalTranscripts: Int
         let totalWithTranscriptionData: Int
         let totalAudioDuration: TimeInterval
-        let totalEnhancedFiles: Int
         let transcriptionModels: [ModelStat]
-        let enhancementModels: [ModelStat]
     }
 
     struct ModelStat: Identifiable {
@@ -31,7 +29,6 @@ struct PerformanceAnalyzer {
         let totalTranscripts = transcriptions.count
         let totalWithTranscriptionData = transcriptions.filter { $0.transcriptionDuration != nil }.count
         let totalAudioDuration = transcriptions.reduce(0) { $0 + $1.duration }
-        let totalEnhancedFiles = transcriptions.filter { $0.enhancedText != nil && $0.enhancementDuration != nil }.count
 
         let transcriptionStats = processStats(
             for: transcriptions,
@@ -40,19 +37,11 @@ struct PerformanceAnalyzer {
             audioDurationKeyPath: \.duration
         )
 
-        let enhancementStats = processStats(
-            for: transcriptions,
-            modelNameKeyPath: \.aiEnhancementModelName,
-            durationKeyPath: \.enhancementDuration
-        )
-
         return AnalysisResult(
             totalTranscripts: totalTranscripts,
             totalWithTranscriptionData: totalWithTranscriptionData,
             totalAudioDuration: totalAudioDuration,
-            totalEnhancedFiles: totalEnhancedFiles,
-            transcriptionModels: transcriptionStats,
-            enhancementModels: enhancementStats
+            transcriptionModels: transcriptionStats
         )
     }
 
@@ -78,7 +67,7 @@ struct PerformanceAnalyzer {
             let avgAudioDuration = totalAudioDuration / Double(fileCount)
 
             var speedFactor = 0.0
-            if let audioDurationKeyPath = audioDurationKeyPath, totalProcessingTime > 0 {
+            if audioDurationKeyPath != nil, totalProcessingTime > 0 {
                 speedFactor = totalAudioDuration / totalProcessingTime
             }
 
@@ -147,10 +136,6 @@ struct PerformanceAnalysisView: View {
                     if !analysis.transcriptionModels.isEmpty {
                         transcriptionPerformanceSection
                     }
-                    
-                    if !analysis.enhancementModels.isEmpty {
-                        enhancementPerformanceSection
-                    }
                 }
                 .padding()
             }
@@ -188,12 +173,6 @@ struct PerformanceAnalysisView: View {
                 label: "Analyzable",
                 color: .teal
             )
-            SummaryCard(
-                icon: "sparkles", 
-                value: "\(analysis.totalEnhancedFiles)", 
-                label: "Enhanced",
-                color: .mint
-            )
         }
     }
 
@@ -224,21 +203,6 @@ struct PerformanceAnalysisView: View {
             }
         }
     }
-
-    private var enhancementPerformanceSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Enhancement Models")
-                .font(.system(.title2, design: .default, weight: .bold))
-                .foregroundColor(.primary)
-
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(analysis.enhancementModels) { modelStat in
-                    EnhancementModelCard(modelStat: modelStat)
-                }
-            }
-        }
-    }
-    
     private func formatDuration(_ duration: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
@@ -379,44 +343,6 @@ struct TranscriptionModelCard: View {
         formatter.allowedUnits = [.minute, .second]
         formatter.unitsStyle = .abbreviated
         return formatter.string(from: duration) ?? "0s"
-    }
-}
-
-struct EnhancementModelCard: View {
-    let modelStat: PerformanceAnalyzer.ModelStat
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Model name and transcript count
-            HStack(alignment: .firstTextBaseline) {
-                Text(modelStat.name)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                Spacer()
-                
-                Text("\(modelStat.fileCount) transcripts")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Divider()
-            
-            VStack(alignment: .center) {
-                Text(String(format: "%.2f s", modelStat.avgProcessingTime))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(.indigo)
-                Text("Avg. Enhancement Time")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .padding(16)
-        .background(MetricCardBackground(color: .indigo))
-        .cornerRadius(12)
     }
 }
 

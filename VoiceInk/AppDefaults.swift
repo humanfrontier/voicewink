@@ -5,7 +5,6 @@ enum AppDefaults {
         UserDefaults.standard.register(defaults: [
             // Onboarding & General
             "hasCompletedOnboarding": false,
-            "enableAnnouncements": true,
             "autoUpdateCheck": true,
 
             // Clipboard
@@ -39,13 +38,6 @@ enum AppDefaults {
             // Hotkey
             "isMiddleClickToggleEnabled": false,
             "middleClickActivationDelay": 200,
-
-            // Enhancement
-            "isToggleEnhancementShortcutEnabled": true,
-            "SkipShortEnhancement": true,
-            "ShortEnhancementWordThreshold": 3,
-            "EnhancementTimeoutSeconds": 7,
-            "EnhancementRetryOnTimeout": true,
 
             // Model
             "PrewarmModelOnWake": true,

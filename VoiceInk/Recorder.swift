@@ -3,15 +3,50 @@ import AVFoundation
 import CoreAudio
 import os
 
+protocol AudioDeviceManaging: AnyObject {
+    var availableDevices: [(id: AudioDeviceID, uid: String, name: String)] { get }
+    var isRecordingActive: Bool { get set }
+    func getCurrentDevice() -> AudioDeviceID
+}
+
+extension AudioDeviceManager: AudioDeviceManaging {}
+
+protocol CoreAudioRecording: AnyObject, Sendable {
+    var onAudioChunk: ((_ data: Data) -> Void)? { get set }
+    var averagePower: Float { get }
+    var peakPower: Float { get }
+    func startRecording(toOutputFile url: URL, deviceID: AudioDeviceID) throws
+    func stopRecording()
+    func switchDevice(to newDeviceID: AudioDeviceID) throws
+}
+
+extension CoreAudioRecorder: CoreAudioRecording {}
+
+protocol SystemAudioMuting: AnyObject {
+    func muteSystemAudio() async -> Bool
+    func unmuteSystemAudio() async
+}
+
+extension MediaController: SystemAudioMuting {}
+
+protocol MediaPlaybackControlling: AnyObject {
+    func pauseMedia() async
+    func resumeMedia() async
+}
+
+extension PlaybackController: MediaPlaybackControlling {}
+
 @MainActor
 class Recorder: NSObject, ObservableObject {
-    private var recorder: CoreAudioRecorder?
+    private var recorder: CoreAudioRecording?
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "Recorder")
-    private let deviceManager = AudioDeviceManager.shared
+    private let deviceManager: AudioDeviceManaging
     private var deviceSwitchObserver: NSObjectProtocol?
     private var isReconfiguring = false
-    private let mediaController = MediaController.shared
-    private let playbackController = PlaybackController.shared
+    private let mediaController: SystemAudioMuting
+    private let playbackController: MediaPlaybackControlling
+    private let recorderFactory: () -> CoreAudioRecording
+    private let audioSetupQueueKey = DispatchSpecificKey<Void>()
     @Published var audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
     private var audioMeterUpdateTimer: DispatchSourceTimer?
     private let audioMeterQueue = DispatchQueue(label: "com.prakashjoshipax.voiceink.audiometer", qos: .userInteractive)
@@ -32,8 +67,18 @@ class Recorder: NSObject, ObservableObject {
         case couldNotStartRecording
     }
     
-    override init() {
+    init(
+        deviceManager: AudioDeviceManaging = AudioDeviceManager.shared,
+        recorderFactory: @escaping () -> CoreAudioRecording = { CoreAudioRecorder() },
+        mediaController: SystemAudioMuting = MediaController.shared,
+        playbackController: MediaPlaybackControlling = PlaybackController.shared
+    ) {
+        self.deviceManager = deviceManager
+        self.recorderFactory = recorderFactory
+        self.mediaController = mediaController
+        self.playbackController = playbackController
         super.init()
+        audioSetupQueue.setSpecific(key: audioSetupQueueKey, value: ())
         setupDeviceSwitchObserver()
     }
 
@@ -118,7 +163,7 @@ class Recorder: NSObject, ObservableObject {
         let deviceID = deviceManager.getCurrentDevice()
 
         do {
-            let coreAudioRecorder = CoreAudioRecorder()
+            let coreAudioRecorder = recorderFactory()
             coreAudioRecorder.onAudioChunk = onAudioChunk
             recorder = coreAudioRecorder
 
@@ -160,10 +205,14 @@ class Recorder: NSObject, ObservableObject {
         audioMeterUpdateTimer?.cancel()
         audioMeterUpdateTimer = nil
         
-        // Capture current recorder to stop it on the serial hardware queue
+        // Finish teardown before clearing state so callers observe a fully stopped recorder.
         let currentRecorder = self.recorder
-        audioSetupQueue.async {
+        if DispatchQueue.getSpecific(key: audioSetupQueueKey) != nil {
             currentRecorder?.stopRecording()
+        } else {
+            audioSetupQueue.sync {
+                currentRecorder?.stopRecording()
+            }
         }
         recorder = nil
         onAudioChunk = nil

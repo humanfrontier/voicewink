@@ -1,13 +1,13 @@
 import SwiftUI
 import SwiftData
-import Sparkle
+@preconcurrency import Sparkle
 import AppKit
 import OSLog
 import AppIntents
 import FluidAudio
 
 @main
-struct VoiceInkApp: App {
+struct VoiceWinkApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     let container: ModelContainer
     let containerInitializationFailed: Bool
@@ -20,11 +20,8 @@ struct VoiceInkApp: App {
     @StateObject private var hotkeyManager: HotkeyManager
     @StateObject private var updaterViewModel: UpdaterViewModel
     @StateObject private var menuBarManager: MenuBarManager
-    @StateObject private var aiService = AIService()
-    @StateObject private var enhancementService: AIEnhancementService
     @StateObject private var activeWindowService = ActiveWindowService.shared
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @AppStorage("enableAnnouncements") private var enableAnnouncements = true
     @State private var showMenuBarIcon = true
 
     // Audio cleanup manager for automatic deletion of old audio files
@@ -41,6 +38,7 @@ struct VoiceInkApp: App {
         URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0)
 
         AppDefaults.registerDefaults()
+        VoiceWinkCleanCutReset.applyIfNeeded()
 
         if UserDefaults.standard.object(forKey: "powerModeUIFlag") == nil {
             let hasEnabledPowerModes = PowerModeManager.shared.configurations.contains { $0.isEnabled }
@@ -69,7 +67,7 @@ struct VoiceInkApp: App {
             DispatchQueue.main.async {
                 let alert = NSAlert()
                 alert.messageText = "Storage Warning"
-                alert.informativeText = "VoiceInk couldn't access its storage location. Your transcriptions will not be saved between sessions."
+                alert.informativeText = "VoiceWink couldn't access its storage location. Your transcriptions will not be saved between sessions."
                 alert.alertStyle = .warning
                 alert.addButton(withTitle: "OK")
                 alert.runModal()
@@ -89,23 +87,11 @@ struct VoiceInkApp: App {
 
         containerInitializationFailed = initializationFailed
 
-        // Initialize services with proper sharing of instances
-        let aiService = AIService()
-        _aiService = StateObject(wrappedValue: aiService)
-
         let updaterViewModel = UpdaterViewModel()
         _updaterViewModel = StateObject(wrappedValue: updaterViewModel)
 
-        let enhancementService = AIEnhancementService(aiService: aiService, modelContext: container.mainContext)
-        _enhancementService = StateObject(wrappedValue: enhancementService)
-
-        // 1. Create modelsDirectory URL
-        let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk")
-        let modelsDirectory = appSupportDirectory.appendingPathComponent("WhisperModels")
-
         // 2. Create model managers
-        let whisperModelManager = WhisperModelManager(modelsDirectory: modelsDirectory)
+        let whisperModelManager = WhisperModelManager(modelsDirectory: AppPaths.modelsDirectory)
         let fluidAudioModelManager = FluidAudioModelManager()
         let transcriptionModelManager = TranscriptionModelManager(
             whisperModelManager: whisperModelManager,
@@ -119,8 +105,7 @@ struct VoiceInkApp: App {
         let engine = VoiceInkEngine(
             modelContext: container.mainContext,
             whisperModelManager: whisperModelManager,
-            transcriptionModelManager: transcriptionModelManager,
-            enhancementService: enhancementService
+            transcriptionModelManager: transcriptionModelManager
         )
 
         // 5. Configure circular deps
@@ -128,9 +113,12 @@ struct VoiceInkApp: App {
         engine.recorderUIManager = recorderUIManager
 
         // 6. Initialize model state
-        // Migration and refreshAllAvailableModels must run before loadCurrentTranscriptionModel so renamed keys are remapped and imported models are present when restoring the saved selection.
-        StreamingKeysMigration.run()
         whisperModelManager.createModelsDirectoryIfNeeded()
+        do {
+            try whisperModelManager.bootstrapBundledStarterModelIfNeeded()
+        } catch {
+            logger.error("❌ Failed to copy the bundled starter model: \(error.localizedDescription, privacy: .public)")
+        }
         whisperModelManager.loadAvailableModels()
         transcriptionModelManager.refreshAllAvailableModels()
         transcriptionModelManager.loadCurrentTranscriptionModel()
@@ -150,13 +138,12 @@ struct VoiceInkApp: App {
         menuBarManager.configure(modelContainer: container, engine: engine)
 
         let activeWindowService = ActiveWindowService.shared
-        activeWindowService.configure(with: enhancementService)
+        activeWindowService.configure()
         _activeWindowService = StateObject(wrappedValue: activeWindowService)
 
         let prewarmService = ModelPrewarmService(
             transcriptionModelManager: transcriptionModelManager,
-            whisperModelManager: whisperModelManager,
-            modelContext: container.mainContext
+            whisperModelManager: whisperModelManager
         )
         _prewarmService = StateObject(wrappedValue: prewarmService)
 
@@ -177,9 +164,7 @@ struct VoiceInkApp: App {
 
     private static func createPersistentContainer(schema: Schema, logger: Logger) -> ModelContainer? {
         do {
-            // Create app-specific Application Support directory URL
-            let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+            let appSupportURL = AppPaths.applicationSupportDirectory
 
             // Create the directory if it doesn't exist
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
@@ -202,7 +187,7 @@ struct VoiceInkApp: App {
             #if LOCAL_BUILD
             let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .none
             #else
-            let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .private("iCloud.com.prakashjoshipax.VoiceInk")
+            let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .private(AppIdentity.cloudKitContainerIdentifier)
             #endif
             let dictionaryConfig = ModelConfiguration(
                 "dictionary",
@@ -259,15 +244,13 @@ struct VoiceInkApp: App {
                     .environmentObject(hotkeyManager)
                     .environmentObject(updaterViewModel)
                     .environmentObject(menuBarManager)
-                    .environmentObject(aiService)
-                    .environmentObject(enhancementService)
                     .modelContainer(container)
                     .onAppear {
                         // Check if container initialization failed
                         if containerInitializationFailed {
                             let alert = NSAlert()
                             alert.messageText = "Critical Storage Error"
-                            alert.informativeText = "VoiceInk cannot initialize its storage system. The app cannot continue.\n\nPlease try reinstalling the app or contact support if the issue persists."
+                            alert.informativeText = "VoiceWink cannot initialize its storage system. The app cannot continue.\n\nPlease try reinstalling the app or contact support if the issue persists."
                             alert.alertStyle = .critical
                             alert.addButton(withTitle: "Quit")
                             alert.runModal()
@@ -277,9 +260,6 @@ struct VoiceInkApp: App {
                         }
 
                         updaterViewModel.silentlyCheckForUpdates()
-                        if enableAnnouncements {
-                            AnnouncementsService.shared.start()
-                        }
 
                         // Start the automatic audio cleanup process only if transcript cleanup is not enabled
                         if !UserDefaults.standard.bool(forKey: "IsTranscriptionCleanupEnabled") {
@@ -299,7 +279,6 @@ struct VoiceInkApp: App {
                         WindowManager.shared.configureWindow(window)
                     })
                     .onDisappear {
-                        AnnouncementsService.shared.stop()
                         whisperModelManager.unloadModel()
 
                         // Stop the automatic audio cleanup process
@@ -313,11 +292,9 @@ struct VoiceInkApp: App {
                     .environmentObject(fluidAudioModelManager)
                     .environmentObject(transcriptionModelManager)
                     .environmentObject(recorderUIManager)
-                    .environmentObject(aiService)
-                    .environmentObject(enhancementService)
                     .frame(minWidth: 880, minHeight: 780)
                     .background(WindowAccessor { window in
-                        if window.identifier == nil || window.identifier != NSUserInterfaceItemIdentifier("com.prakashjoshipax.voiceink.onboardingWindow") {
+                        if window.identifier == nil || window.identifier != NSUserInterfaceItemIdentifier("com.prakashjoshipax.voicewink.onboardingWindow") {
                             WindowManager.shared.configureOnboardingPanel(window)
                         }
                     })
@@ -344,10 +321,9 @@ struct VoiceInkApp: App {
                 .environmentObject(hotkeyManager)
                 .environmentObject(menuBarManager)
                 .environmentObject(updaterViewModel)
-                .environmentObject(aiService)
-                .environmentObject(enhancementService)
         } label: {
             let image: NSImage = {
+                $0.isTemplate = true
                 let ratio = $0.size.height / $0.size.width
                 $0.size.height = 22
                 $0.size.width = 22 / ratio
@@ -368,36 +344,93 @@ struct VoiceInkApp: App {
     }
 }
 
-class UpdaterViewModel: ObservableObject {
-    @AppStorage("autoUpdateCheck") private var autoUpdateCheck = true
+final class UpdaterViewModel: NSObject, ObservableObject, SPUUpdaterDelegate {
+    private let configuration: AppUpdateConfiguration
+    private lazy var updaterController = SPUStandardUpdaterController(
+        startingUpdater: false,
+        updaterDelegate: self,
+        userDriverDelegate: nil
+    )
+    private var canCheckObservation: NSKeyValueObservation?
 
-    private let updaterController: SPUStandardUpdaterController
+    @Published private(set) var canCheckForUpdates = true
+    @Published private(set) var supportsAutomaticChecks = false
 
-    @Published var canCheckForUpdates = false
+    @MainActor
+    init(configuration: AppUpdateConfiguration = AppUpdateConfiguration()) {
+        self.configuration = configuration
+        super.init()
 
-    init() {
-        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        supportsAutomaticChecks = configuration.supportsAutomaticChecks
 
-        // Enable automatic update checking
-        updaterController.updater.automaticallyChecksForUpdates = autoUpdateCheck
+        canCheckObservation = updaterController.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.canCheckForUpdates = self.configuration.supportsSparkleUpdater ? updater.canCheckForUpdates : true
+            }
+        }
+
+        guard configuration.supportsSparkleUpdater else {
+            canCheckForUpdates = true
+            return
+        }
+
+        _ = updaterController.updater.clearFeedURLFromUserDefaults()
+        updaterController.updater.automaticallyChecksForUpdates = UserDefaults.standard.object(forKey: "autoUpdateCheck") as? Bool ?? true
         updaterController.updater.updateCheckInterval = 24 * 60 * 60
-
-        updaterController.updater.publisher(for: \.canCheckForUpdates)
-            .assign(to: &$canCheckForUpdates)
+        updaterController.startUpdater()
     }
 
+    func feedURLString(for updater: SPUUpdater) -> String? {
+        configuration.sparkleFeedURL?.absoluteString
+    }
+
+    @MainActor
     func toggleAutoUpdates(_ value: Bool) {
+        guard configuration.supportsSparkleUpdater else { return }
         updaterController.updater.automaticallyChecksForUpdates = value
     }
 
+    @MainActor
     func checkForUpdates() {
-        // This is for manual checks - will show UI
+        guard configuration.supportsSparkleUpdater else {
+            if let releasesPageURL = configuration.releasesPageURL {
+                NSWorkspace.shared.open(releasesPageURL)
+            } else {
+                presentMissingUpdateConfigurationAlert()
+            }
+            return
+        }
+
         updaterController.checkForUpdates(nil)
     }
 
+    @MainActor
     func silentlyCheckForUpdates() {
-        // This checks for updates in the background without showing UI unless an update is found
+        guard configuration.supportsSparkleUpdater else { return }
+        guard UserDefaults.standard.object(forKey: "autoUpdateCheck") as? Bool ?? true else { return }
         updaterController.updater.checkForUpdatesInBackground()
+    }
+
+    @MainActor
+    var automaticUpdateHelpText: String? {
+        guard !supportsAutomaticChecks else { return nil }
+
+        if configuration.releasesPageURL != nil {
+            return "Automatic checks are disabled for this build until a VoiceWink Sparkle feed is configured. Manual checks still open the configured release page."
+        }
+
+        return "Automatic checks are disabled for this build until a VoiceWink update source is configured. Local builds can still use Check for Updates for pull-and-rebuild instructions."
+    }
+
+    @MainActor
+    private func presentMissingUpdateConfigurationAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Local Update Instructions"
+        alert.informativeText = "This VoiceWink build does not define a release feed yet. To update locally, pull the latest VoiceWink changes and rebuild with `make local`. Once a VoiceWink release page or Sparkle feed is configured, Check for Updates will use it automatically."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
 

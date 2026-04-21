@@ -6,7 +6,6 @@ import KeyboardShortcuts
 class PermissionManager: ObservableObject {
     @Published var audioPermissionStatus = AVCaptureDevice.authorizationStatus(for: .audio)
     @Published var isAccessibilityEnabled = false
-    @Published var isScreenRecordingEnabled = false
     @Published var isKeyboardShortcutSet = false
     
     init() {
@@ -38,7 +37,6 @@ class PermissionManager: ObservableObject {
     
     func checkAllPermissions() {
         checkAccessibilityPermissions()
-        checkScreenRecordingPermission()
         checkAudioPermissionStatus()
         checkKeyboardShortcut()
     }
@@ -49,16 +47,6 @@ class PermissionManager: ObservableObject {
         DispatchQueue.main.async {
             self.isAccessibilityEnabled = accessibilityEnabled
         }
-    }
-    
-    func checkScreenRecordingPermission() {
-        DispatchQueue.main.async {
-            self.isScreenRecordingEnabled = CGPreflightScreenCaptureAccess()
-        }
-    }
-    
-    func requestScreenRecordingPermission() {
-        CGRequestScreenCaptureAccess()
     }
     
     func checkAudioPermissionStatus() {
@@ -204,7 +192,7 @@ struct PermissionsView: View {
                 CompactHeroSection(
                     icon: "shield.lefthalf.filled",
                     title: "App Permissions",
-                    description: "VoiceInk requires the following permissions to function properly"
+                    description: "VoiceWink requires the following permissions to function properly"
                 )
                 
                 // Permission Cards
@@ -213,7 +201,7 @@ struct PermissionsView: View {
                     PermissionCard(
                         icon: "keyboard",
                         title: "Keyboard Shortcut",
-                        description: "Set up a keyboard shortcut to use VoiceInk anywhere",
+                        description: "Set up a keyboard shortcut to use VoiceWink anywhere",
                         isGranted: hotkeyManager.selectedHotkey1 != .none,
                         buttonTitle: "Configure Shortcut",
                         buttonAction: {
@@ -230,7 +218,7 @@ struct PermissionsView: View {
                     PermissionCard(
                         icon: "mic",
                         title: "Microphone Access",
-                        description: "Allow VoiceInk to record your voice for transcription",
+                        description: "Allow VoiceWink to record your voice for transcription",
                         isGranted: permissionManager.audioPermissionStatus == .authorized,
                         buttonTitle: permissionManager.audioPermissionStatus == .notDetermined ? "Request Permission" : "Open System Settings",
                         buttonAction: {
@@ -249,7 +237,7 @@ struct PermissionsView: View {
                     PermissionCard(
                         icon: "hand.raised",
                         title: "Accessibility Access",
-                        description: "Allow VoiceInk to paste transcribed text directly at your cursor position",
+                        description: "Allow VoiceWink to paste transcribed text directly at your cursor position",
                         isGranted: permissionManager.isAccessibilityEnabled,
                         buttonTitle: "Open System Settings",
                         buttonAction: {
@@ -258,27 +246,9 @@ struct PermissionsView: View {
                             }
                         },
                         checkPermission: { permissionManager.checkAccessibilityPermissions() },
-                        infoTipMessage: "VoiceInk uses Accessibility permissions to paste the transcribed text directly into other applications at your cursor's position. This allows for a seamless dictation experience across your Mac."
+                        infoTipMessage: AppIdentity.accessibilityPermissionHelp
                     )
                     
-                    // Screen Recording Permission
-                    PermissionCard(
-                        icon: "rectangle.on.rectangle",
-                        title: "Screen Recording Access",
-                        description: "Allow VoiceInk to understand context from your screen for transcript Enhancement",
-                        isGranted: permissionManager.isScreenRecordingEnabled,
-                        buttonTitle: "Request Permission",
-                        buttonAction: {
-                            permissionManager.requestScreenRecordingPermission()
-                            // After requesting, open system preferences as fallback
-                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        },
-                        checkPermission: { permissionManager.checkScreenRecordingPermission() },
-                        infoTipMessage: "VoiceInk captures on-screen text to understand the context of your voice input, which significantly improves transcription accuracy. Your privacy is important: this data is processed locally and is not stored.",
-                        infoTipLink: "https://tryvoiceink.com/docs/contextual-awareness"
-                    )
                 }
             }
             .padding(24)

@@ -9,13 +9,12 @@ class SystemInfoService {
 
     func getSystemInfoString() -> String {
         let info = """
-        === VOICEINK SYSTEM INFORMATION ===
+        === VOICEWINK SYSTEM INFORMATION ===
         Generated: \(Date().formatted(date: .long, time: .standard))
 
         APP INFORMATION:
         App Version: \(getAppVersion())
         Build Version: \(getBuildVersion())
-        License Status: \(getLicenseStatus())
 
         OPERATING SYSTEM:
         macOS Version: \(ProcessInfo.processInfo.operatingSystemVersionString)
@@ -38,9 +37,6 @@ class SystemInfoService {
         TRANSCRIPTION SETTINGS:
         Selected Model: \(getCurrentTranscriptionModel())
         Selected Language: \(getCurrentLanguage())
-        AI Enhancement: \(getAIEnhancementStatus())
-        AI Provider: \(getAIProvider())
-        AI Model: \(getAIModel())
 
         UI SETTINGS:
         Menu Bar Only: \(UserDefaults.standard.bool(forKey: "IsMenuBarOnly"))
@@ -62,7 +58,6 @@ class SystemInfoService {
 
         PERMISSIONS:
         Accessibility: \(getAccessibilityStatus())
-        Screen Recording: \(getScreenRecordingStatus())
         Microphone: \(getMicrophoneStatus())
         """
 
@@ -160,34 +155,8 @@ class SystemInfoService {
         return "No model selected"
     }
 
-    private func getAIEnhancementStatus() -> String {
-        let enhancementEnabled = UserDefaults.standard.bool(forKey: "isAIEnhancementEnabled")
-        return enhancementEnabled ? "Enabled" : "Disabled"
-    }
-
-    private func getAIProvider() -> String {
-        if let providerRaw = UserDefaults.standard.string(forKey: "selectedAIProvider") {
-            return providerRaw
-        }
-        return "None selected"
-    }
-
-    private func getAIModel() -> String {
-        if let providerRaw = UserDefaults.standard.string(forKey: "selectedAIProvider") {
-            let modelKey = "\(providerRaw)SelectedModel"
-            if let savedModel = UserDefaults.standard.string(forKey: modelKey), !savedModel.isEmpty {
-                return savedModel
-            }
-            return "Default (\(providerRaw))"
-        }
-        return "None selected"
-    }
     private func getAccessibilityStatus() -> String {
         return AXIsProcessTrusted() ? "Granted" : "Not Granted"
-    }
-
-    private func getScreenRecordingStatus() -> String {
-        return CGPreflightScreenCaptureAccess() ? "Granted" : "Not Granted"
     }
 
     private func getMicrophoneStatus() -> String {
@@ -204,20 +173,6 @@ class SystemInfoService {
             return "Unknown"
         }
     }
-
-    private func getLicenseStatus() -> String {
-        let licenseManager = LicenseManager.shared
-
-        // Check for existing license key and activation
-        if licenseManager.licenseKey != nil {
-            if licenseManager.activationId != nil || !UserDefaults.standard.bool(forKey: "VoiceInkLicenseRequiresActivation") {
-                return "Licensed (Pro)"
-            }
-        }
-
-        return "Not Licensed"
-    }
-
     private func getCurrentLanguage() -> String {
         return UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
     }

@@ -5,7 +5,6 @@ struct MetricsSetupView: View {
     @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
     @EnvironmentObject private var hotkeyManager: HotkeyManager
     @State private var isAccessibilityEnabled = AXIsProcessTrusted()
-    @State private var isScreenRecordingEnabled = CGPreflightScreenCaptureAccess()
     
     var body: some View {
         ScrollView {
@@ -17,7 +16,7 @@ struct MetricsSetupView: View {
                         .padding(.bottom, 20)
                        
                     VStack(spacing: 4) {
-                        Text("Welcome to VoiceInk")
+                        Text("Welcome to VoiceWink")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .multilineTextAlignment(.center)
                         
@@ -32,9 +31,9 @@ struct MetricsSetupView: View {
                 
                 // Setup Steps
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(0..<4) { index in
+                    ForEach(0..<3) { index in
                         setupStep(for: index)
-                        if index < 3 {
+                        if index < 2 {
                             Divider().padding(.leading, 70)
                         }
                     }
@@ -71,7 +70,7 @@ struct MetricsSetupView: View {
                 isCompleted: hotkeyManager.selectedHotkey1 != .none,
                 icon: "command",
                 title: "Set Keyboard Shortcut",
-                description: "Use VoiceInk anywhere with a shortcut."
+                description: "Use VoiceWink anywhere with a shortcut."
             )
         case 1:
             stepInfo = (
@@ -80,19 +79,12 @@ struct MetricsSetupView: View {
                 title: "Enable Accessibility",
                 description: "Paste transcribed text at your cursor."
             )
-        case 2:
-            stepInfo = (
-                isCompleted: isScreenRecordingEnabled,
-                icon: "video.fill",
-                title: "Enable Screen Recording",
-                description: "Get better transcriptions with screen context."
-            )
         default:
             stepInfo = (
                 isCompleted: transcriptionModelManager.currentTranscriptionModel != nil,
                 icon: "arrow.down.to.line",
-                title: "Download Model",
-                description: "Choose an AI model to start transcribing."
+                title: "Download Local Model",
+                description: "Choose a local model to start transcribing."
             )
         }
         
@@ -156,12 +148,6 @@ struct MetricsSetupView: View {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                     NSWorkspace.shared.open(url)
                 }
-            } else if !CGPreflightScreenCaptureAccess() {
-                CGRequestScreenCaptureAccess()
-                // After requesting, open system preferences as fallback
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-                    NSWorkspace.shared.open(url)
-                }
             }
         }
     }
@@ -171,10 +157,8 @@ struct MetricsSetupView: View {
             return "Configure Shortcut"
         } else if !AXIsProcessTrusted() {
             return "Enable Accessibility"
-        } else if !CGPreflightScreenCaptureAccess() {
-            return "Enable Screen Recording"
         } else if transcriptionModelManager.currentTranscriptionModel == nil {
-            return "Download Model"
+            return "Download Local Model"
         }
         return "Get Started"
     }
@@ -187,8 +171,7 @@ struct MetricsSetupView: View {
     
     private var isShortcutAndAccessibilityGranted: Bool {
         hotkeyManager.selectedHotkey1 != .none &&
-        AXIsProcessTrusted() && 
-        CGPreflightScreenCaptureAccess()
+        AXIsProcessTrusted()
     }
     
     private func openSettings() {
@@ -203,8 +186,7 @@ struct MetricsSetupView: View {
         NotificationCenter.default.post(
             name: .navigateToDestination,
             object: nil,
-            userInfo: ["destination": "AI Models"]
+            userInfo: ["destination": "Local Models"]
         )
     }
 }
-

@@ -4,6 +4,17 @@ import Zip
 import SwiftUI
 import Atomics
 
+enum WhisperModelManagerError: LocalizedError {
+    case bundledStarterMissing
+
+    var errorDescription: String? {
+        switch self {
+        case .bundledStarterMissing:
+            return "VoiceWink could not find its bundled starter Whisper model."
+        }
+    }
+}
+
 // MARK: - WhisperModelFile
 
 struct WhisperModelFile: Identifiable {
@@ -73,28 +84,58 @@ class WhisperModelManager: ObservableObject {
     /// TranscriptionModelManager can rebuild allAvailableModels.
     var onModelsChanged: (() -> Void)?
 
+    private let fileManager: FileManager
+    private let bundledModelURLProvider: (String) -> URL?
     let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "WhisperModelManager")
 
-    init(modelsDirectory: URL) {
+    init(
+        modelsDirectory: URL,
+        fileManager: FileManager = .default,
+        bundledModelURLProvider: @escaping (String) -> URL? = AppPaths.bundledModelURL
+    ) {
         self.modelsDirectory = modelsDirectory
+        self.fileManager = fileManager
+        self.bundledModelURLProvider = bundledModelURLProvider
     }
 
     // MARK: - Model Directory Management
 
     func createModelsDirectoryIfNeeded() {
         do {
-            try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true, attributes: nil)
+            try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true, attributes: nil)
         } catch {
             logError("Error creating models directory", error)
         }
     }
 
+    func bootstrapBundledStarterModelIfNeeded() throws {
+        let destinationURL = modelsDirectory.appendingPathComponent(AppIdentity.bundledStarterWhisperFilename)
+
+        guard fileManager.fileExists(atPath: destinationURL.path) == false else {
+            return
+        }
+
+        guard let bundledURL = bundledModelURLProvider(AppIdentity.bundledStarterWhisperFilename) else {
+            throw WhisperModelManagerError.bundledStarterMissing
+        }
+
+        try fileManager.copyItem(at: bundledURL, to: destinationURL)
+    }
+
     func loadAvailableModels() {
         do {
-            let fileURLs = try FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil)
+            let fileURLs = try fileManager.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil)
             availableModels = fileURLs.compactMap { url in
                 guard url.pathExtension == "bin" else { return nil }
                 return WhisperModelFile(name: url.deletingPathExtension().lastPathComponent, url: url)
+            }.sorted { lhs, rhs in
+                if lhs.name == AppIdentity.bundledStarterWhisperModelName {
+                    return true
+                }
+                if rhs.name == AppIdentity.bundledStarterWhisperModelName {
+                    return false
+                }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
             }
         } catch {
             logError("Error loading available models", error)
@@ -126,6 +167,7 @@ class WhisperModelManager: ObservableObject {
 
     private func downloadFileWithProgress(from url: URL, progressKey: String) async throws -> Data {
         let destinationURL = modelsDirectory.appendingPathComponent(UUID().uuidString)
+        let fileManager = self.fileManager
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
             let finished = ManagedAtomic(false)
@@ -150,10 +192,10 @@ class WhisperModelManager: ObservableObject {
                 }
 
                 do {
-                    try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                    try fileManager.moveItem(at: tempURL, to: destinationURL)
                     let data = try Data(contentsOf: destinationURL, options: .mappedIfSafe)
                     finishOnce(.success(data))
-                    try? FileManager.default.removeItem(at: destinationURL)
+                    try? fileManager.removeItem(at: destinationURL)
                 } catch {
                     finishOnce(.failure(error))
                 }
@@ -242,13 +284,14 @@ class WhisperModelManager: ObservableObject {
     private func unzipAndSetupCoreMLModel(for model: WhisperModelFile, zipPath: URL, progressKey: String) async throws -> WhisperModelFile {
         let coreMLDestination = modelsDirectory.appendingPathComponent("\(model.name)-encoder.mlmodelc")
 
-        try? FileManager.default.removeItem(at: coreMLDestination)
+        try? fileManager.removeItem(at: coreMLDestination)
         try await unzipCoreMLFile(zipPath, to: modelsDirectory)
         return try verifyAndCleanupCoreMLFiles(model, coreMLDestination, zipPath, progressKey)
     }
 
     private func unzipCoreMLFile(_ zipPath: URL, to destination: URL) async throws {
         let finished = ManagedAtomic(false)
+        let fileManager = self.fileManager
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             func finishOnce(_ result: Result<Void, Error>) {
@@ -258,7 +301,7 @@ class WhisperModelManager: ObservableObject {
             }
 
             do {
-                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+                try fileManager.createDirectory(at: destination, withIntermediateDirectories: true)
                 try Zip.unzipFile(zipPath, destination: destination, overwrite: true, password: nil)
                 finishOnce(.success(()))
             } catch {
@@ -271,12 +314,12 @@ class WhisperModelManager: ObservableObject {
         var model = model
 
         var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            try? FileManager.default.removeItem(at: zipPath)
+        guard fileManager.fileExists(atPath: destination.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            try? fileManager.removeItem(at: zipPath)
             throw VoiceInkEngineError.unzipFailed
         }
 
-        try? FileManager.default.removeItem(at: zipPath)
+        try? fileManager.removeItem(at: zipPath)
         model.coreMLEncoderURL = destination
         self.downloadProgress.removeValue(forKey: progressKey)
 
@@ -294,14 +337,14 @@ class WhisperModelManager: ObservableObject {
 
     func deleteModel(_ model: WhisperModelFile) async {
         do {
-            try FileManager.default.removeItem(at: model.url)
+            try fileManager.removeItem(at: model.url)
 
             if let coreMLURL = model.coreMLEncoderURL {
-                try? FileManager.default.removeItem(at: coreMLURL)
+                try? fileManager.removeItem(at: coreMLURL)
             } else {
                 let coreMLDir = modelsDirectory.appendingPathComponent("\(model.name)-encoder.mlmodelc")
-                if FileManager.default.fileExists(atPath: coreMLDir.path) {
-                    try? FileManager.default.removeItem(at: coreMLDir)
+                if fileManager.fileExists(atPath: coreMLDir.path) {
+                    try? fileManager.removeItem(at: coreMLDir)
                 }
             }
 
@@ -325,7 +368,7 @@ class WhisperModelManager: ObservableObject {
     func clearDownloadedModels() async {
         for model in availableModels {
             do {
-                try FileManager.default.removeItem(at: model.url)
+                try fileManager.removeItem(at: model.url)
             } catch {
                 logError("Error deleting model during cleanup", error)
             }
@@ -353,7 +396,7 @@ class WhisperModelManager: ObservableObject {
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
         let destinationURL = modelsDirectory.appendingPathComponent("\(baseName).bin")
 
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
+        if fileManager.fileExists(atPath: destinationURL.path) {
             await NotificationManager.shared.showNotification(
                 title: "A model named \(baseName).bin already exists",
                 type: .warning,
@@ -363,8 +406,8 @@ class WhisperModelManager: ObservableObject {
         }
 
         do {
-            try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+            try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
 
             let newWhisperModel = WhisperModelFile(name: baseName, url: destinationURL)
             availableModels.append(newWhisperModel)

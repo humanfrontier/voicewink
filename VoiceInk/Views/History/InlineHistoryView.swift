@@ -37,8 +37,7 @@ struct InlineHistoryView: View {
         if let timestamp = timestamp {
             if !searchText.isEmpty {
                 descriptor.predicate = #Predicate<Transcription> { transcription in
-                    (transcription.text.localizedStandardContains(searchText) ||
-                    (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)) &&
+                    transcription.text.localizedStandardContains(searchText) &&
                     transcription.timestamp < timestamp
                 }
             } else {
@@ -48,8 +47,7 @@ struct InlineHistoryView: View {
             }
         } else if !searchText.isEmpty {
             descriptor.predicate = #Predicate<Transcription> { transcription in
-                transcription.text.localizedStandardContains(searchText) ||
-                (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)
+                transcription.text.localizedStandardContains(searchText)
             }
         }
 
@@ -132,7 +130,7 @@ struct InlineHistoryView: View {
         }
         .onChange(of: searchText) { _, _ in
             Task {
-                await resetPagination()
+                resetPagination()
                 await loadInitialContent()
             }
         }
@@ -140,7 +138,7 @@ struct InlineHistoryView: View {
             guard isViewCurrentlyVisible else { return }
             if newId != oldId {
                 Task {
-                    await resetPagination()
+                    resetPagination()
                     await loadInitialContent()
                 }
             }
@@ -156,6 +154,7 @@ struct InlineHistoryView: View {
                     .foregroundColor(.secondary)
                     .font(.system(size: 12))
                 TextField("Search transcriptions...", text: $searchText)
+                    .accessibilityIdentifier("history.searchField")
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
             }
@@ -241,6 +240,7 @@ struct InlineHistoryView: View {
                 .font(.system(size: 40))
                 .foregroundColor(.secondary)
             Text(searchText.isEmpty ? "No transcriptions yet" : "No results found")
+                .accessibilityIdentifier("history.emptyState")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.secondary)
             Text(searchText.isEmpty ? "Your transcription history will appear here" : "Try a different search term")
@@ -460,8 +460,7 @@ struct InlineHistoryView: View {
 
             if !searchText.isEmpty {
                 allDescriptor.predicate = #Predicate<Transcription> { transcription in
-                    transcription.text.localizedStandardContains(searchText) ||
-                    (transcription.enhancedText?.localizedStandardContains(searchText) ?? false)
+                    transcription.text.localizedStandardContains(searchText)
                 }
             }
 
@@ -494,17 +493,6 @@ private struct HistoryCardRow: View {
     let onToggleCheck: () -> Void
     let onShowInfo: () -> Void
 
-    @State private var selectedTab: TranscriptionTab = .original
-
-    private var displayText: String {
-        switch selectedTab {
-        case .original:
-            return transcription.text
-        case .enhanced:
-            return transcription.enhancedText ?? ""
-        }
-    }
-
     private var hasAudioFile: Bool {
         if let urlString = transcription.audioFileURL,
            let url = URL(string: urlString),
@@ -530,7 +518,7 @@ private struct HistoryCardRow: View {
                         .foregroundColor(.secondary)
 
                     if !isExpanded {
-                        Text(transcription.enhancedText ?? transcription.text)
+                        Text(transcription.text)
                             .font(.system(size: 13))
                             .lineLimit(2)
                             .foregroundColor(.primary)
@@ -559,40 +547,15 @@ private struct HistoryCardRow: View {
 
     private var expandedContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Tabs
-            if transcription.enhancedText != nil {
-                HStack(spacing: 4) {
-                    ForEach(TranscriptionTab.allCases, id: \.self) { tab in
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                selectedTab = tab
-                            }
-                        } label: {
-                            Text(tab.rawValue)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(selectedTab == tab ? .primary : .secondary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedTab == tab ? Color.secondary.opacity(0.15) : Color.clear)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer()
-                }
-            }
-
             ScrollView {
-                Text(displayText)
+                Text(transcription.text)
                     .font(.body)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 350)
             .overlay(alignment: .bottomTrailing) {
-                CopyIconButton(textToCopy: displayText)
+                CopyIconButton(textToCopy: transcription.text)
                     .padding(8)
             }
 
@@ -617,4 +580,3 @@ private struct HistoryCardRow: View {
     }
 
 }
-

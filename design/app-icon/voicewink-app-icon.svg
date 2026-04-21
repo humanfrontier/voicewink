@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="background-gradient" x1="152" y1="104" x2="896" y2="936" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#081322"/>
+      <stop offset="0.5" stop-color="#0D1727"/>
+      <stop offset="1" stop-color="#1C3153"/>
+    </linearGradient>
+    <radialGradient id="background-bloom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(356 232) rotate(45.8241) scale(538.441 649.604)">
+      <stop stop-color="#69EDFF" stop-opacity="0.24"/>
+      <stop offset="0.46" stop-color="#69EDFF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#69EDFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="symbol-gradient" x1="332" y1="168" x2="698" y2="894" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#AEFCFF"/>
+      <stop offset="0.44" stop-color="#66D8FF"/>
+      <stop offset="1" stop-color="#2A74FF"/>
+    </linearGradient>
+    <mask id="head-cutouts">
+      <rect x="332" y="168" width="360" height="446" rx="180" fill="#FFF"/>
+      <circle cx="430" cy="336" r="28" fill="#000"/>
+      <rect x="530" y="320" width="140" height="34" rx="17" transform="rotate(-8 530 320)" fill="#000"/>
+      <rect x="386" y="414" width="98" height="28" rx="14" fill="#000"/>
+      <rect x="540" y="414" width="98" height="28" rx="14" fill="#000"/>
+      <rect x="372" y="488" width="112" height="30" rx="15" fill="#000"/>
+      <rect x="540" y="488" width="112" height="30" rx="15" fill="#000"/>
+    </mask>
+  </defs>
+
+  <rect x="44" y="44" width="936" height="936" rx="224" fill="url(#background-gradient)"/>
+  <rect x="44" y="44" width="936" height="936" rx="224" fill="url(#background-bloom)"/>
+  <rect x="44" y="44" width="936" height="936" rx="224" stroke="#B0DFFF" stroke-opacity="0.08" stroke-width="2"/>
+
+  <path
+    d="M244 388C210 450 194 522 200 594C206 673 232 746 278 804"
+    stroke="#87F4FF"
+    stroke-opacity="0.08"
+    stroke-width="26"
+    stroke-linecap="round"
+  />
+  <path
+    d="M780 388C814 450 830 522 824 594C818 673 792 746 746 804"
+    stroke="#87F4FF"
+    stroke-opacity="0.08"
+    stroke-width="26"
+    stroke-linecap="round"
+  />
+
+  <rect x="332" y="168" width="360" height="446" rx="180" fill="url(#symbol-gradient)" mask="url(#head-cutouts)"/>
+
+  <path
+    d="M304 460V616C304 742 396 826 512 826C628 826 720 742 720 616V460"
+    stroke="url(#symbol-gradient)"
+    stroke-width="48"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <rect x="488" y="760" width="48" height="96" rx="24" fill="url(#symbol-gradient)"/>
+
+  <path
+    d="M394 886C456 926 568 926 630 886"
+    stroke="url(#symbol-gradient)"
+    stroke-width="48"
+    stroke-linecap="round"
+  />
+</svg>

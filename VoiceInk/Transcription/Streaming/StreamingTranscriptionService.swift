@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 import os
 
 /// Sendable source that bridges audio chunks from any thread into an AsyncStream.
@@ -48,12 +47,10 @@ class StreamingTranscriptionService {
     private let chunkSource = AudioChunkSource()
     private var state: StreamingState = .idle
     private var committedSegments: [String] = []
-    private let modelContext: ModelContext
     private let fluidAudioService: FluidAudioTranscriptionService?
     private var onPartialTranscript: ((String) -> Void)?
 
-    init(modelContext: ModelContext, fluidAudioService: FluidAudioTranscriptionService? = nil, onPartialTranscript: ((String) -> Void)? = nil) {
-        self.modelContext = modelContext
+    init(fluidAudioService: FluidAudioTranscriptionService? = nil, onPartialTranscript: ((String) -> Void)? = nil) {
         self.fluidAudioService = fluidAudioService
         self.onPartialTranscript = onPartialTranscript
     }
@@ -167,17 +164,13 @@ class StreamingTranscriptionService {
     // MARK: - Private
 
     private func createProvider(for model: any TranscriptionModel) -> StreamingTranscriptionProvider {
-        if model.provider == .fluidAudio {
-            guard let fluidAudioService else {
-                fatalError("FluidAudioTranscriptionService required for FluidAudio streaming. Ensure it is passed to StreamingTranscriptionService.")
-            }
-            return FluidAudioStreamingProvider(fluidAudioService: fluidAudioService)
+        guard model.provider == .fluidAudio else {
+            fatalError("VoiceWink only supports local FluidAudio streaming.")
         }
-        guard let cloudProvider = CloudProviderRegistry.provider(for: model.provider),
-              let streamingProvider = cloudProvider.makeStreamingProvider(modelContext: modelContext) else {
-            fatalError("Unsupported streaming provider: \(model.provider). Check supportsStreaming() before calling startStreaming().")
+        guard let fluidAudioService else {
+            fatalError("FluidAudioTranscriptionService required for FluidAudio streaming. Ensure it is passed to StreamingTranscriptionService.")
         }
-        return streamingProvider
+        return FluidAudioStreamingProvider(fluidAudioService: fluidAudioService)
     }
 
     /// Consumes audio chunks from the AsyncStream and sends them to the provider.

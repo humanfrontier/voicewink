@@ -37,13 +37,11 @@ struct VocabularyWordData: Codable {
 
 struct VoiceInkExportedSettings: Codable {
     let version: String
-    let customPrompts: [CustomPrompt]
     let powerModeConfigs: [PowerModeConfig]
     let vocabularyWords: [VocabularyWordData]?
     let wordReplacements: [String: String]?
     let generalSettings: GeneralSettings?
     let customEmojis: [String]?
-    let customCloudModels: [CustomCloudModel]?
 }
 
 class ImportExportService {
@@ -73,16 +71,11 @@ class ImportExportService {
     }
 
     @MainActor
-    func exportSettings(enhancementService: AIEnhancementService, whisperPrompt: WhisperPrompt, hotkeyManager: HotkeyManager, menuBarManager: MenuBarManager, mediaController: MediaController, playbackController: PlaybackController, soundManager: SoundManager, recorderUIManager: RecorderUIManager, modelContext: ModelContext) {
+    func exportSettings(hotkeyManager: HotkeyManager, menuBarManager: MenuBarManager, mediaController: MediaController, playbackController: PlaybackController, soundManager: SoundManager, recorderUIManager: RecorderUIManager, modelContext: ModelContext) {
         let powerModeManager = PowerModeManager.shared
         let emojiManager = EmojiManager.shared
 
-        let exportablePrompts = enhancementService.customPrompts.filter { !$0.isPredefined }
-
         let powerConfigs = powerModeManager.configurations
-
-        // Export custom models
-        let customModels = CustomCloudModelManager.shared.customModels
 
         // Fetch vocabulary words from SwiftData
         var exportedDictionaryItems: [VocabularyWordData]? = nil
@@ -125,13 +118,11 @@ class ImportExportService {
 
         let exportedSettings = VoiceInkExportedSettings(
             version: currentSettingsVersion,
-            customPrompts: exportablePrompts,
             powerModeConfigs: powerConfigs,
             vocabularyWords: exportedDictionaryItems,
             wordReplacements: exportedWordReplacements,
             generalSettings: generalSettingsToExport,
-            customEmojis: emojiManager.customEmojis,
-            customCloudModels: customModels
+            customEmojis: emojiManager.customEmojis
         )
 
         let encoder = JSONEncoder()
@@ -142,8 +133,8 @@ class ImportExportService {
 
             let savePanel = NSSavePanel()
             savePanel.allowedContentTypes = [UTType.json]
-            savePanel.nameFieldStringValue = "VoiceInk_Settings_Backup.json"
-            savePanel.title = "Export VoiceInk Settings"
+            savePanel.nameFieldStringValue = "VoiceWink_Settings_Backup.json"
+            savePanel.title = "Export VoiceWink Settings"
             savePanel.message = "Choose a location to save your settings."
 
             DispatchQueue.main.async {
@@ -166,14 +157,14 @@ class ImportExportService {
     }
 
     @MainActor
-    func importSettings(enhancementService: AIEnhancementService, whisperPrompt: WhisperPrompt, hotkeyManager: HotkeyManager, menuBarManager: MenuBarManager, mediaController: MediaController, playbackController: PlaybackController, soundManager: SoundManager, recorderUIManager: RecorderUIManager, modelContext: ModelContext, transcriptionModelManager: TranscriptionModelManager) {
+    func importSettings(hotkeyManager: HotkeyManager, menuBarManager: MenuBarManager, mediaController: MediaController, playbackController: PlaybackController, soundManager: SoundManager, recorderUIManager: RecorderUIManager, modelContext: ModelContext) {
         let openPanel = NSOpenPanel()
         openPanel.allowedContentTypes = [UTType.json]
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
         openPanel.allowsMultipleSelection = false
-        openPanel.title = "Import VoiceInk Settings"
-        openPanel.message = "Choose a settings file to import. This will overwrite ALL settings (prompts, power modes, dictionary, general app settings)."
+        openPanel.title = "Import VoiceWink Settings"
+        openPanel.message = "Choose a settings file to import. This will overwrite all settings, including power modes, dictionary, and general app settings."
 
         DispatchQueue.main.async {
             if openPanel.runModal() == .OK {
@@ -191,23 +182,9 @@ class ImportExportService {
                         self.showAlert(title: "Version Mismatch", message: "The imported settings file (version \(importedSettings.version)) is from a different version than your application (version \(self.currentSettingsVersion)). Proceeding with import, but be aware of potential incompatibilities.")
                     }
 
-                    let predefinedPrompts = enhancementService.customPrompts.filter { $0.isPredefined }
-                    enhancementService.customPrompts = predefinedPrompts + importedSettings.customPrompts
-                    
                     let powerModeManager = PowerModeManager.shared
                     powerModeManager.configurations = importedSettings.powerModeConfigs
                     powerModeManager.saveConfigurations()
-
-                    // Import Custom Models
-                    if let modelsToImport = importedSettings.customCloudModels {
-                        let customModelManager = CustomCloudModelManager.shared
-                        customModelManager.customModels = modelsToImport
-                        customModelManager.saveCustomModels() // Ensure they are persisted
-                        transcriptionModelManager.refreshAllAvailableModels() // Refresh the UI
-                        print("Successfully imported \(modelsToImport.count) custom models.")
-                    } else {
-                        print("No custom models found in the imported file.")
-                    }
 
                     if let customEmojis = importedSettings.customEmojis {
                         let emojiManager = EmojiManager.shared
@@ -370,19 +347,10 @@ class ImportExportService {
         DispatchQueue.main.async {
             let alert = NSAlert()
             alert.messageText = "Import Successful"
-            alert.informativeText = message + "\n\nIMPORTANT: If you were using AI enhancement features, please make sure to reconfigure your API keys in the Enhancement section.\n\nIt is recommended to restart VoiceInk for all changes to take full effect."
+            alert.informativeText = message + "\n\nIt is recommended to restart VoiceWink for all changes to take full effect."
             alert.alertStyle = .informational
             alert.addButton(withTitle: "OK")
-            alert.addButton(withTitle: "Configure API Keys")
-            
-            let response = alert.runModal()
-            if response == .alertSecondButtonReturn {
-                NotificationCenter.default.post(
-                    name: .navigateToDestination,
-                    object: nil,
-                    userInfo: ["destination": "Enhancement"]
-                )
-            }
+            _ = alert.runModal()
         }
     }
 }

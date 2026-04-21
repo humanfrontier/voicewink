@@ -11,7 +11,6 @@ enum QueueItemStatus: Equatable {
         case loading = "Loading model..."
         case processingAudio = "Processing audio..."
         case transcribing = "Transcribing..."
-        case enhancing = "Enhancing..."
     }
 
     var isTerminal: Bool {

@@ -2,11 +2,6 @@ import Foundation
 import AppKit
 
 struct ApplicationState: Codable {
-    var isEnhancementEnabled: Bool
-    var useScreenCaptureContext: Bool
-    var selectedPromptId: String?
-    var selectedAIProvider: String?
-    var selectedAIModel: String?
     var selectedLanguage: String?
     var transcriptionModelName: String?
 }
@@ -24,20 +19,18 @@ class PowerModeSessionManager {
     private var isApplyingPowerModeConfig = false
 
     private weak var stateProvider: (any PowerModeStateProvider)?
-    private var enhancementService: AIEnhancementService?
 
     private init() {
         recoverSession()
     }
 
     /// Configure with new VoiceInkEngine-based provider.
-    func configure(engine: any PowerModeStateProvider, enhancementService: AIEnhancementService) {
+    func configure(engine: any PowerModeStateProvider) {
         self.stateProvider = engine
-        self.enhancementService = enhancementService
     }
 
     func beginSession(with config: PowerModeConfig) async {
-        guard let stateProvider = stateProvider, let enhancementService = enhancementService else {
+        guard let stateProvider = stateProvider else {
             print("SessionManager not configured.")
             return
         }
@@ -45,11 +38,6 @@ class PowerModeSessionManager {
         // Only capture baseline if NO session exists
         if loadSession() == nil {
             let originalState = ApplicationState(
-                isEnhancementEnabled: enhancementService.isEnhancementEnabled,
-                useScreenCaptureContext: enhancementService.useScreenCaptureContext,
-                selectedPromptId: enhancementService.selectedPromptId?.uuidString,
-                selectedAIProvider: enhancementService.getAIService()?.selectedProvider.rawValue,
-                selectedAIModel: enhancementService.getAIService()?.currentModel,
                 selectedLanguage: UserDefaults.standard.string(forKey: "SelectedLanguage"),
                 transcriptionModelName: stateProvider.currentTranscriptionModel?.name
             )
@@ -90,15 +78,9 @@ class PowerModeSessionManager {
         guard !isApplyingPowerModeConfig else { return }
 
         guard var session = loadSession(),
-              let stateProvider = stateProvider,
-              let enhancementService = enhancementService else { return }
+              let stateProvider = stateProvider else { return }
 
         let updatedState = ApplicationState(
-            isEnhancementEnabled: enhancementService.isEnhancementEnabled,
-            useScreenCaptureContext: enhancementService.useScreenCaptureContext,
-            selectedPromptId: enhancementService.selectedPromptId?.uuidString,
-            selectedAIProvider: enhancementService.getAIService()?.selectedProvider.rawValue,
-            selectedAIModel: enhancementService.getAIService()?.currentModel,
             selectedLanguage: UserDefaults.standard.string(forKey: "SelectedLanguage"),
             transcriptionModelName: stateProvider.currentTranscriptionModel?.name
         )
@@ -108,28 +90,9 @@ class PowerModeSessionManager {
     }
 
     private func applyConfiguration(_ config: PowerModeConfig) async {
-        guard let enhancementService = enhancementService,
-              let stateProvider = stateProvider else { return }
+        guard let stateProvider = stateProvider else { return }
 
         await MainActor.run {
-            enhancementService.isEnhancementEnabled = config.isAIEnhancementEnabled
-            enhancementService.useScreenCaptureContext = config.useScreenCapture
-
-            if config.isAIEnhancementEnabled {
-                if let promptId = config.selectedPrompt, let uuid = UUID(uuidString: promptId) {
-                    enhancementService.selectedPromptId = uuid
-                }
-
-                if let aiService = enhancementService.getAIService() {
-                    if let providerName = config.selectedAIProvider, let provider = AIProvider(rawValue: providerName) {
-                        aiService.selectedProvider = provider
-                    }
-                    if let model = config.selectedAIModel {
-                        aiService.selectModel(model)
-                    }
-                }
-            }
-
             if let language = config.selectedLanguage {
                 UserDefaults.standard.set(language, forKey: "SelectedLanguage")
                 NotificationCenter.default.post(name: .languageDidChange, object: nil)
@@ -148,23 +111,9 @@ class PowerModeSessionManager {
     }
 
     private func restoreState(_ state: ApplicationState) async {
-        guard let enhancementService = enhancementService,
-              let stateProvider = stateProvider else { return }
+        guard let stateProvider = stateProvider else { return }
 
         await MainActor.run {
-            enhancementService.isEnhancementEnabled = state.isEnhancementEnabled
-            enhancementService.useScreenCaptureContext = state.useScreenCaptureContext
-            enhancementService.selectedPromptId = state.selectedPromptId.flatMap(UUID.init)
-
-            if let aiService = enhancementService.getAIService() {
-                if let providerName = state.selectedAIProvider, let provider = AIProvider(rawValue: providerName) {
-                    aiService.selectedProvider = provider
-                }
-                if let model = state.selectedAIModel {
-                    aiService.selectModel(model)
-                }
-            }
-
             if let language = state.selectedLanguage {
                 UserDefaults.standard.set(language, forKey: "SelectedLanguage")
                 NotificationCenter.default.post(name: .languageDidChange, object: nil)

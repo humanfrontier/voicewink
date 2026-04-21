@@ -127,13 +127,6 @@ class RecorderUIManager: ObservableObject {
 
         hideRecorderPanel()
 
-        // Clear captured context when the recorder is dismissed
-        if let enhancementService = engine.enhancementService {
-            await MainActor.run {
-                enhancementService.clearCapturedContexts()
-            }
-        }
-
         await MainActor.run {
             isMiniRecorderVisible = false
         }

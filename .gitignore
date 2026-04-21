@@ -32,6 +32,19 @@ playground.xcworkspace
 .build/
 build/
 .local-build/
+.release-build/
+VoiceWink.app/
+.phase*-build/
+.phase*-test-build/
+.phase*-ui-build/
+.clean-cut*/
+.cleanup*/
+.screen-context*/
+.regression-fix*/
+.local-only*/
+.stable-signing-test-build/
+.menu-bar-icon-preview.png
+/docs/
 
 # CocoaPods
 #

@@ -1,27 +1,23 @@
 import Foundation
 import SwiftUI
-import SwiftData
 import os
 
 @MainActor
 class TranscriptionServiceRegistry {
     private weak var modelProvider: (any WhisperModelProvider)?
     private let modelsDirectory: URL
-    private let modelContext: ModelContext
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "TranscriptionServiceRegistry")
 
     private(set) lazy var localTranscriptionService = WhisperTranscriptionService(
         modelsDirectory: modelsDirectory,
         modelProvider: modelProvider
     )
-    private(set) lazy var cloudTranscriptionService = CloudTranscriptionService(modelContext: modelContext)
     private(set) lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
     private(set) lazy var fluidAudioTranscriptionService = FluidAudioTranscriptionService()
 
-    init(modelProvider: any WhisperModelProvider, modelsDirectory: URL, modelContext: ModelContext) {
+    init(modelProvider: any WhisperModelProvider, modelsDirectory: URL) {
         self.modelProvider = modelProvider
         self.modelsDirectory = modelsDirectory
-        self.modelContext = modelContext
     }
 
     func service(for provider: ModelProvider) -> TranscriptionService {
@@ -32,8 +28,6 @@ class TranscriptionServiceRegistry {
             return fluidAudioTranscriptionService
         case .nativeApple:
             return nativeAppleTranscriptionService
-        default:
-            return cloudTranscriptionService
         }
     }
 
@@ -47,7 +41,6 @@ class TranscriptionServiceRegistry {
     func createSession(for model: any TranscriptionModel, onPartialTranscript: ((String) -> Void)? = nil) -> TranscriptionSession {
         if supportsStreaming(model: model) {
             let streamingService = StreamingTranscriptionService(
-                modelContext: modelContext,
                 fluidAudioService: model.provider == .fluidAudio ? fluidAudioTranscriptionService : nil,
                 onPartialTranscript: onPartialTranscript
             )

@@ -27,101 +27,28 @@ struct PowerModeConfig: Codable, Identifiable, Equatable {
     var emoji: String
     var appConfigs: [AppConfig]?
     var urlConfigs: [URLConfig]?
-    var isAIEnhancementEnabled: Bool
-    var selectedPrompt: String?
     var selectedTranscriptionModelName: String?
     var selectedLanguage: String?
-    var useScreenCapture: Bool
-    var selectedAIProvider: String?
-    var selectedAIModel: String?
     var autoSendKey: AutoSendKey = .none
     var isEnabled: Bool = true
     var isDefault: Bool = false
     var hotkeyShortcut: String? = nil
         
-    enum CodingKeys: String, CodingKey {
-        case id, name, emoji, appConfigs, urlConfigs, isAIEnhancementEnabled, selectedPrompt, selectedLanguage, useScreenCapture, selectedAIProvider, selectedAIModel, isAutoSendEnabled, autoSendKey, isEnabled, isDefault, hotkeyShortcut
-        case selectedWhisperModel
-        case selectedTranscriptionModelName
-    }
-    
     init(id: UUID = UUID(), name: String, emoji: String, appConfigs: [AppConfig]? = nil,
-         urlConfigs: [URLConfig]? = nil, isAIEnhancementEnabled: Bool, selectedPrompt: String? = nil,
-         selectedTranscriptionModelName: String? = nil, selectedLanguage: String? = nil, useScreenCapture: Bool = false,
-         selectedAIProvider: String? = nil, selectedAIModel: String? = nil, autoSendKey: AutoSendKey = .none, isEnabled: Bool = true, isDefault: Bool = false, hotkeyShortcut: String? = nil) {
+         urlConfigs: [URLConfig]? = nil, selectedTranscriptionModelName: String? = nil,
+         selectedLanguage: String? = nil, autoSendKey: AutoSendKey = .none, isEnabled: Bool = true, isDefault: Bool = false, hotkeyShortcut: String? = nil) {
         self.id = id
         self.name = name
         self.emoji = emoji
         self.appConfigs = appConfigs
         self.urlConfigs = urlConfigs
-        self.isAIEnhancementEnabled = isAIEnhancementEnabled
-        self.selectedPrompt = selectedPrompt
-        self.useScreenCapture = useScreenCapture
-        self.autoSendKey = autoSendKey
-        self.selectedAIProvider = selectedAIProvider ?? UserDefaults.standard.string(forKey: "selectedAIProvider")
-        self.selectedAIModel = selectedAIModel
         self.selectedTranscriptionModelName = selectedTranscriptionModelName ?? UserDefaults.standard.string(forKey: "CurrentTranscriptionModel")
         self.selectedLanguage = selectedLanguage ?? UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
+        self.autoSendKey = autoSendKey
         self.isEnabled = isEnabled
         self.isDefault = isDefault
         self.hotkeyShortcut = hotkeyShortcut
     }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        emoji = try container.decode(String.self, forKey: .emoji)
-        appConfigs = try container.decodeIfPresent([AppConfig].self, forKey: .appConfigs)
-        urlConfigs = try container.decodeIfPresent([URLConfig].self, forKey: .urlConfigs)
-        isAIEnhancementEnabled = try container.decode(Bool.self, forKey: .isAIEnhancementEnabled)
-        selectedPrompt = try container.decodeIfPresent(String.self, forKey: .selectedPrompt)
-        selectedLanguage = try container.decodeIfPresent(String.self, forKey: .selectedLanguage)
-        useScreenCapture = try container.decode(Bool.self, forKey: .useScreenCapture)
-        selectedAIProvider = try container.decodeIfPresent(String.self, forKey: .selectedAIProvider)
-        selectedAIModel = try container.decodeIfPresent(String.self, forKey: .selectedAIModel)
-        // Migrate from old isAutoSendEnabled bool to new autoSendKey enum
-        if let rawValue = try container.decodeIfPresent(String.self, forKey: .autoSendKey),
-           let newKey = AutoSendKey(rawValue: rawValue) {
-            autoSendKey = newKey
-        } else if let oldBool = try container.decodeIfPresent(Bool.self, forKey: .isAutoSendEnabled), oldBool {
-            autoSendKey = .enter
-        } else {
-            autoSendKey = .none
-        }
-        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
-        isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
-        hotkeyShortcut = try container.decodeIfPresent(String.self, forKey: .hotkeyShortcut)
-
-        if let newModelName = try container.decodeIfPresent(String.self, forKey: .selectedTranscriptionModelName) {
-            selectedTranscriptionModelName = newModelName
-        } else if let oldModelName = try container.decodeIfPresent(String.self, forKey: .selectedWhisperModel) {
-            selectedTranscriptionModelName = oldModelName
-        } else {
-            selectedTranscriptionModelName = nil
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(name, forKey: .name)
-        try container.encode(emoji, forKey: .emoji)
-        try container.encodeIfPresent(appConfigs, forKey: .appConfigs)
-        try container.encodeIfPresent(urlConfigs, forKey: .urlConfigs)
-        try container.encode(isAIEnhancementEnabled, forKey: .isAIEnhancementEnabled)
-        try container.encodeIfPresent(selectedPrompt, forKey: .selectedPrompt)
-        try container.encodeIfPresent(selectedLanguage, forKey: .selectedLanguage)
-        try container.encode(useScreenCapture, forKey: .useScreenCapture)
-        try container.encodeIfPresent(selectedAIProvider, forKey: .selectedAIProvider)
-        try container.encodeIfPresent(selectedAIModel, forKey: .selectedAIModel)
-        try container.encode(autoSendKey, forKey: .autoSendKey)
-        try container.encodeIfPresent(selectedTranscriptionModelName, forKey: .selectedTranscriptionModelName)
-        try container.encode(isEnabled, forKey: .isEnabled)
-        try container.encode(isDefault, forKey: .isDefault)
-        try container.encodeIfPresent(hotkeyShortcut, forKey: .hotkeyShortcut)
-    }
-    
     
     static func == (lhs: PowerModeConfig, rhs: PowerModeConfig) -> Bool {
         lhs.id == rhs.id

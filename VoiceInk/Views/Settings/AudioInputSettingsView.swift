@@ -42,6 +42,7 @@ struct AudioInputSettingsView: View {
     private var inputModeSection: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Input Mode")
+                .accessibilityIdentifier("audioInput.inputModeLabel")
                 .font(.title2)
                 .fontWeight(.semibold)
             

@@ -81,7 +81,7 @@ struct ModelSettingsView: View {
                 Toggle(isOn: $showLiveTextPreview) {
                     HStack(spacing: 4) {
                         Text("Show Live Text Preview")
-                        InfoTip("Displays the live transcript preview in the recorder while speaking. Only applies when using real-time streaming models.")
+                        InfoTip("Displays the live transcript preview in the recorder while speaking. Only applies when using real-time local models.")
                     }
                 }
                 .toggleStyle(.switch)

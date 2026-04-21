@@ -7,15 +7,6 @@ enum LanguageDictionary {
             return ["en": "English"]
         }
 
-        if let cloudProvider = CloudProviderRegistry.provider(for: provider) {
-            guard let codes = cloudProvider.languageCodes else {
-                return all
-            }
-            var filtered = all.filter { codes.contains($0.key) }
-            if cloudProvider.includesAutoDetect { filtered["auto"] = "Auto-detect" }
-            return filtered
-        }
-
         switch provider {
         case .nativeApple:
             let codes = ["ar", "de", "en", "es", "fr", "it", "ja", "ko", "pt", "yue", "zh"]
@@ -31,7 +22,7 @@ enum LanguageDictionary {
             filtered["auto"] = "Auto-detect"
             return filtered
 
-        default:
+        case .whisper:
             return all
         }
     }
