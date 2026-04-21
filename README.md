@@ -19,12 +19,12 @@ Published builds are available through the `humanfrontier/tap` Homebrew tap:
 
 ```bash
 brew tap humanfrontier/tap
-brew install --cask --no-quarantine humanfrontier/tap/voicewink
+brew install --cask humanfrontier/tap/voicewink
 ```
 
 Current public releases are signed with a local self-signed certificate and are not notarized.
 
-If you install the app with quarantine still attached, remove it manually:
+Homebrew 5.1 removed the `--no-quarantine` switch. If macOS blocks the app on first launch, remove quarantine manually:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/VoiceWink.app"
