@@ -34,7 +34,8 @@ make dev
 - `make whisper` - Clone and build whisper.cpp XCFramework automatically
 - `make setup` - Prepare the whisper framework for linking
 - `make build` - Build the VoiceWink Xcode project
-- `make local` - Build for local use (no Apple Developer certificate needed)
+- `make local` - Build for local use with a stable self-signed local identity
+- `make release-public` - Build an ad hoc signed public release zip without notarization
 - `make release-archive` - Build a Developer ID signed release archive and zip
 - `make run` - Launch the built VoiceWink app
 - `make dev` - Build and run (ideal for development workflow)
@@ -104,13 +105,38 @@ That combination is what keeps macOS Accessibility trust attached across rebuild
 
 ### Important limit: local signing is not for public distribution
 
-The local certificate is intentionally self-signed. It is valid for stable local identity and permission testing, but Gatekeeper will reject it for public distribution. Shipping VoiceWink outside your machine still requires a real Apple Developer signing identity.
+The local certificate is intentionally self-signed. It is valid for stable local identity and permission testing, but Gatekeeper will reject it for public distribution. Do not publish `make local` output.
+
+If you want to ship an unnotarized public build, use `make release-public`. That target rebuilds the app in Release configuration and re-signs the final bundle ad hoc, which is a better fit for public unnotarized distribution than a machine-local self-signed identity.
 
 ---
 
 ## Building for Distribution
 
-For distributable builds, use `make release-archive` with a real Developer ID identity:
+### Public unnotarized release
+
+For an unnotarized public release that does not require an Apple Developer account:
+
+```bash
+make release-public
+```
+
+This target:
+- archives the app with Release configuration
+- uses the local-only entitlements and `LOCAL_BUILD` code path
+- re-signs the finished bundle ad hoc
+- packages the finished app as `build/release/VoiceWink.zip`
+
+Outputs:
+- archive: `build/release/VoiceWink.xcarchive`
+- app bundle: `build/release/VoiceWink.app`
+- distributable zip: `build/release/VoiceWink.zip`
+
+This is the correct path for public Homebrew and GitHub release distribution when you are intentionally not notarizing.
+
+### Developer ID signed release
+
+For a distributable build signed with a real Apple Developer identity, use `make release-archive`:
 
 ```bash
 export VOICEWINK_RELEASE_TEAM=YOURTEAMID

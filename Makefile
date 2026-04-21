@@ -14,7 +14,7 @@ RELEASE_ARCHIVE_PATH := $(RELEASE_DIR)/VoiceWink.xcarchive
 RELEASE_APP_PATH := $(RELEASE_DIR)/VoiceWink.app
 RELEASE_ZIP_PATH := $(RELEASE_DIR)/VoiceWink.zip
 
-.PHONY: all clean whisper setup build local check healthcheck help dev run release-check release-archive
+.PHONY: all clean whisper setup build local check healthcheck help dev run release-check release-public release-archive
 
 # Default target
 all: check build
@@ -118,6 +118,31 @@ release-check:
 	@test -n "$(VOICEWINK_RELEASE_TEAM)" || { echo "VOICEWINK_RELEASE_TEAM is required, for example: export VOICEWINK_RELEASE_TEAM=YOURTEAMID"; exit 1; }
 	@test -n "$(VOICEWINK_RELEASE_IDENTITY)" || { echo "VOICEWINK_RELEASE_IDENTITY is required, for example: export VOICEWINK_RELEASE_IDENTITY='Developer ID Application: Your Name (TEAMID)'"; exit 1; }
 
+release-public: check setup
+	@echo "Building VoiceWink public release archive (ad hoc signed, not notarized)..."
+	@mkdir -p "$(RELEASE_DIR)"
+	@rm -rf "$(RELEASE_DERIVED_DATA)" "$(RELEASE_ARCHIVE_PATH)" "$(RELEASE_APP_PATH)" "$(RELEASE_ZIP_PATH)"
+	xcodebuild -project VoiceWink.xcodeproj -scheme VoiceWink -configuration Release \
+		-derivedDataPath "$(RELEASE_DERIVED_DATA)" \
+		-archivePath "$(RELEASE_ARCHIVE_PATH)" \
+		CODE_SIGN_IDENTITY="-" \
+		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGNING_ALLOWED=YES \
+		DEVELOPMENT_TEAM="" \
+		CODE_SIGN_ENTITLEMENTS=$(CURDIR)/VoiceInk/VoiceWink.local.entitlements \
+		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
+		archive
+	@ditto "$(RELEASE_ARCHIVE_PATH)/Products/Applications/VoiceWink.app" "$(RELEASE_APP_PATH)"
+	@xattr -cr "$(RELEASE_APP_PATH)"
+	@codesign --force --deep --sign - "$(RELEASE_APP_PATH)"
+	@codesign --verify --deep --strict --verbose=2 "$(RELEASE_APP_PATH)"
+	@ditto -c -k --sequesterRsrc --keepParent "$(RELEASE_APP_PATH)" "$(RELEASE_ZIP_PATH)"
+	@echo ""
+	@echo "Public release archive ready at: $(RELEASE_ARCHIVE_PATH)"
+	@echo "Public release app ready at: $(RELEASE_APP_PATH)"
+	@echo "Public release zip ready at: $(RELEASE_ZIP_PATH)"
+	@echo "Note: this build is ad hoc signed and not notarized."
+
 release-archive: check setup release-check
 	@echo "Building VoiceWink release archive..."
 	@mkdir -p "$(RELEASE_DIR)"
@@ -160,6 +185,7 @@ help:
 	@echo "  setup              Copy whisper XCFramework to the VoiceWink project"
 	@echo "  build              Build the VoiceWink Xcode project"
 	@echo "  local              Build for local use (no Apple Developer certificate needed)"
+	@echo "  release-public     Build an ad hoc signed public release zip (not notarized)"
 	@echo "  release-archive    Build a Developer ID signed release archive and zip"
 	@echo "  run                Launch the built VoiceWink app"
 	@echo "  dev                Build and run the app (for development)"
