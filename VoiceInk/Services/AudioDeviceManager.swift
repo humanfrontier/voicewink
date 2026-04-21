@@ -85,7 +85,7 @@ class AudioDeviceManager: ObservableObject {
                 if let device = availableDevices.first(where: { $0.uid == savedUID }) {
                     selectedDeviceID = device.id
                 } else {
-                    logger.warning("🎙️ Saved device UID \(savedUID, privacy: .public) is no longer available")
+                    logger.warning("🎙️ Saved device UID is no longer available, \(AppLogRedaction.textSummary(savedUID), privacy: .public)")
                     UserDefaults.standard.removeObject(forKey: UserDefaults.Keys.selectedAudioDeviceUID)
                     fallbackToDefaultDevice()
                 }
@@ -110,7 +110,7 @@ class AudioDeviceManager: ObservableObject {
         }
 
         let newDeviceName = getDeviceName(deviceID: newDeviceID) ?? "Unknown Device"
-        logger.notice("🎙️ Auto-selecting new device: \(newDeviceName, privacy: .public)")
+        logger.notice("🎙️ Auto-selecting new device, \(AppLogRedaction.textSummary(newDeviceName), privacy: .public)")
         selectDevice(id: newDeviceID)
     }
 
@@ -119,7 +119,7 @@ class AudioDeviceManager: ObservableObject {
             return device.id
         }
         if let device = availableDevices.first {
-            logger.warning("🎙️ No built-in device found, using: \(device.name, privacy: .public)")
+            logger.warning("🎙️ No built-in device found, using device \(AppLogRedaction.textSummary(device.name), privacy: .public)")
             return device.id
         }
         return nil
@@ -366,7 +366,7 @@ class AudioDeviceManager: ObservableObject {
         for device in sortedDevices {
             if let availableDevice = availableDevices.first(where: { $0.uid == device.id }) {
                 selectedDeviceID = availableDevice.id
-                logger.notice("🎙️ Selected prioritized device: \(device.name, privacy: .public)")
+                logger.notice("🎙️ Selected prioritized device, \(AppLogRedaction.textSummary(device.name), privacy: .public)")
                 notifyDeviceChange()
                 return
             }

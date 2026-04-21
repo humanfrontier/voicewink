@@ -29,3 +29,38 @@ enum AppIdentity {
         "VoiceWink uses Accessibility permissions to paste the transcribed text directly into other applications at your cursor's position. This allows for a seamless dictation experience across your Mac."
     #endif
 }
+
+enum AppLogRedaction {
+    static func textSummary(_ text: String) -> String {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let characterCount = trimmedText.count
+        let wordCount = trimmedText.split(whereSeparator: \.isWhitespace).count
+
+        return "characters=\(characterCount) words=\(wordCount) empty=\(trimmedText.isEmpty)"
+    }
+
+    static func changeSummary(before: String, after: String) -> String {
+        "before{\(textSummary(before))} after{\(textSummary(after))} changed=\(before != after)"
+    }
+
+    static func errorSummary(_ error: Error) -> String {
+        let nsError = error as NSError
+        return "type=\(String(reflecting: type(of: error))) domain=\(nsError.domain) code=\(nsError.code)"
+    }
+
+    static func fileSummary(_ url: URL) -> String {
+        let pathExtension = url.pathExtension.isEmpty ? "none" : url.pathExtension.lowercased()
+        return "filenameLength=\(url.lastPathComponent.count) extension=\(pathExtension)"
+    }
+
+    static func urlSummary(_ text: String) -> String {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parsedURL = URL(string: trimmedText)
+        let scheme = parsedURL?.scheme ?? "unknown"
+        let hasHost = parsedURL?.host != nil
+        let hasPath = !(parsedURL?.path ?? "").isEmpty
+        let hasQuery = parsedURL?.query != nil
+
+        return "characters=\(trimmedText.count) scheme=\(scheme) hasHost=\(hasHost) hasPath=\(hasPath) hasQuery=\(hasQuery)"
+    }
+}

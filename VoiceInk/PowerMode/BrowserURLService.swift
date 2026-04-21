@@ -129,18 +129,18 @@ class BrowserURLService {
                 
                 // Check if output contains error messages
                 if output.lowercased().contains("error") {
-                    logger.error("❌ AppleScript error for \(browser.displayName, privacy: .public): \(output, privacy: .public)")
+                    logger.error("❌ AppleScript error for \(browser.displayName, privacy: .public), \(AppLogRedaction.textSummary(output), privacy: .public)")
                     throw BrowserURLError.executionFailed
                 }
                 
-                logger.debug("✅ Successfully retrieved URL from \(browser.displayName, privacy: .public): \(output, privacy: .public)")
+                logger.debug("✅ Successfully retrieved URL from \(browser.displayName, privacy: .public), \(AppLogRedaction.urlSummary(output), privacy: .public)")
                 return output
             } else {
                 logger.error("❌ Failed to decode output from AppleScript for \(browser.displayName, privacy: .public)")
                 throw BrowserURLError.executionFailed
             }
         } catch {
-            logger.error("❌ AppleScript execution failed for \(browser.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("❌ AppleScript execution failed for \(browser.displayName, privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
             throw BrowserURLError.executionFailed
         }
     }

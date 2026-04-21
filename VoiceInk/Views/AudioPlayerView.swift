@@ -1,5 +1,8 @@
 import SwiftUI
 import AVFoundation
+import OSLog
+
+private let audioPlayerLogger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "AudioPlayerView")
 
 extension TimeInterval {
     func formatTiming() -> String {
@@ -59,7 +62,7 @@ class WaveformGenerator {
             cache.setObject(normalizedSamples as NSArray, forKey: cacheKey)
             return normalizedSamples
         } catch {
-            print("Error reading audio file: \(error)")
+            audioPlayerLogger.error("Waveform generation failed for \(AppLogRedaction.fileSummary(url), privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
             return []
         }
     }
@@ -96,7 +99,7 @@ class AudioPlayerManager: ObservableObject {
                 }
             }
         } catch {
-            print("Error loading audio: \(error.localizedDescription)")
+            audioPlayerLogger.error("Audio player load failed for \(AppLogRedaction.fileSummary(url), privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
     

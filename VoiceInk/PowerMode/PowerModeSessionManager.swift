@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import OSLog
 
 struct ApplicationState: Codable {
     var selectedLanguage: String?
@@ -15,6 +16,7 @@ struct PowerModeSession: Codable {
 @MainActor
 class PowerModeSessionManager {
     static let shared = PowerModeSessionManager()
+    private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "PowerModeSessionManager")
     private let sessionKey = "powerModeActiveSession.v1"
     private var isApplyingPowerModeConfig = false
 
@@ -31,7 +33,7 @@ class PowerModeSessionManager {
 
     func beginSession(with config: PowerModeConfig) async {
         guard let stateProvider = stateProvider else {
-            print("SessionManager not configured.")
+            logger.error("PowerModeSessionManager beginSession called before configuration")
             return
         }
 
@@ -139,7 +141,7 @@ class PowerModeSessionManager {
                 do {
                     try await stateProvider.loadModel(whisperModel)
                 } catch {
-                    print("Power Mode: Failed to load local model '\(whisperModel.name)': \(error)")
+                    logger.error("Power Mode failed to load local model \(whisperModel.name, privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
                 }
             }
         case .fluidAudio:
@@ -150,8 +152,8 @@ class PowerModeSessionManager {
     }
 
     private func recoverSession() {
-        guard let session = loadSession() else { return }
-        print("Recovering abandoned Power Mode session.")
+        guard loadSession() != nil else { return }
+        logger.notice("Recovering abandoned Power Mode session")
         Task {
             await endSession()
         }
@@ -162,7 +164,7 @@ class PowerModeSessionManager {
             let data = try JSONEncoder().encode(session)
             UserDefaults.standard.set(data, forKey: sessionKey)
         } catch {
-            print("Error saving Power Mode session: \(error)")
+            logger.error("Failed to save Power Mode session: \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
 
@@ -171,7 +173,7 @@ class PowerModeSessionManager {
         do {
             return try JSONDecoder().decode(PowerModeSession.self, from: data)
         } catch {
-            print("Error loading Power Mode session: \(error)")
+            logger.error("Failed to load Power Mode session: \(AppLogRedaction.errorSummary(error), privacy: .public)")
             return nil
         }
     }

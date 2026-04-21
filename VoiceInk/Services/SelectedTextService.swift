@@ -1,6 +1,9 @@
 import Foundation
 import AppKit
+import OSLog
 import SelectedTextKit
+
+private let selectedTextServiceLogger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "SelectedTextService")
 
 class SelectedTextService {
     static func fetchSelectedText() async -> String? {
@@ -9,7 +12,7 @@ class SelectedTextService {
             let selectedText = try await SelectedTextManager.shared.getSelectedText(strategies: strategies)
             return selectedText
         } catch {
-            print("Failed to get selected text: \(error)")
+            selectedTextServiceLogger.error("Failed to get selected text: \(AppLogRedaction.errorSummary(error), privacy: .public)")
             return nil
         }
     }

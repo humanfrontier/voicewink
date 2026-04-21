@@ -191,7 +191,7 @@ class AudioTranscriptionManager: ObservableObject {
             if Task.isCancelled || error is CancellationError {
                 item.status = .pending
             } else {
-                logger.error("Transcription error: \(error.localizedDescription, privacy: .public)")
+                logger.error("Transcription error: \(AppLogRedaction.errorSummary(error), privacy: .public)")
                 item.status = .failed(message: error.localizedDescription)
             }
         }

@@ -1,7 +1,9 @@
 import Foundation
+import OSLog
 import SwiftData
 
 class LastTranscriptionService: ObservableObject {
+    private static let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "LastTranscriptionService")
     
     static func getLastTranscription(from modelContext: ModelContext) -> Transcription? {
         var descriptor = FetchDescriptor<Transcription>(
@@ -13,7 +15,7 @@ class LastTranscriptionService: ObservableObject {
             let transcriptions = try modelContext.fetch(descriptor)
             return transcriptions.first
         } catch {
-            print("Error fetching last transcription: \(error)")
+            logger.error("Failed to fetch last transcription: \(AppLogRedaction.errorSummary(error), privacy: .public)")
             return nil
         }
     }
@@ -115,6 +117,7 @@ class LastTranscriptionService: ObservableObject {
                     type: .success
                 )
             } catch {
+                logger.error("Retry last transcription failed: \(AppLogRedaction.errorSummary(error), privacy: .public)")
                 NotificationManager.shared.showNotification(
                     title: "Retry failed: \(error.localizedDescription)",
                     type: .error

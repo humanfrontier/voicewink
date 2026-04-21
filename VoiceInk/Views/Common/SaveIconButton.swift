@@ -1,5 +1,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import OSLog
+
+private let saveIconButtonLogger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "SaveIconButton")
 
 struct SaveIconButton: View {
     let textToSave: String
@@ -41,7 +44,7 @@ struct SaveIconButton: View {
                     withAnimation { saved = false }
                 }
             } catch {
-                print("Failed to save file: \(error.localizedDescription)")
+                saveIconButtonLogger.error("Failed to save transcription export \(AppLogRedaction.fileSummary(url), privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
             }
         }
     }

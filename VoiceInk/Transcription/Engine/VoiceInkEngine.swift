@@ -59,7 +59,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         do {
             try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true, attributes: nil)
         } catch {
-            logger.error("❌ Error creating recordings directory: \(error.localizedDescription, privacy: .public)")
+            logger.error("❌ Error creating recordings directory: \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
 
@@ -175,7 +175,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                         do {
                                             try await self.whisperModelManager.loadModel(localWhisperModel)
                                         } catch {
-                                            await self.logger.error("❌ Model loading failed: \(error.localizedDescription, privacy: .public)")
+                                            await self.logger.error("❌ Model loading failed: \(AppLogRedaction.errorSummary(error), privacy: .public)")
                                         }
                                     }
                                 } else if let fluidAudioModel = await self.transcriptionModelManager.currentTranscriptionModel as? FluidAudioModel {
@@ -185,7 +185,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                             }
 
                         } catch {
-                            self.logger.error("❌ Failed to start recording: \(error.localizedDescription, privacy: .public)")
+                            self.logger.error("❌ Failed to start recording: \(AppLogRedaction.errorSummary(error), privacy: .public)")
                             await NotificationManager.shared.showNotification(title: "Recording failed to start", type: .error)
                             self.logger.notice("toggleRecord: calling dismissMiniRecorder from error handler")
                             await self.recorderUIManager?.dismissMiniRecorder()

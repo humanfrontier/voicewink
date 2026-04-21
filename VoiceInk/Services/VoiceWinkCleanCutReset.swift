@@ -54,7 +54,7 @@ enum VoiceWinkCleanCutReset {
                 try fileManager.removeItem(at: url)
                 logger.notice("Removed legacy transcript store artifact: \(artifact, privacy: .public)")
             } catch {
-                logger.error("Failed to remove transcript store artifact \(artifact, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                logger.error("Failed to remove transcript store artifact \(artifact, privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
             }
         }
     }

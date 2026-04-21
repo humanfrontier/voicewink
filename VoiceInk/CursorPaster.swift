@@ -87,7 +87,7 @@ class CursorPaster {
         var error: NSDictionary?
         pasteScript?.executeAndReturnError(&error)
         if let error = error {
-            logger.error("AppleScript paste failed: \(error, privacy: .public)")
+            logger.error("AppleScript paste failed, \(AppLogRedaction.textSummary(String(describing: error)), privacy: .public)")
         }
     }
 

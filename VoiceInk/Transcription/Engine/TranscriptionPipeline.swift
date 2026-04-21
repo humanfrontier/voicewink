@@ -63,9 +63,11 @@ class TranscriptionPipeline {
             } else {
                 text = try await serviceRegistry.transcribe(audioURL: audioURL, model: model)
             }
-            logger.notice("📝 Transcript: \(text, privacy: .public)")
-            text = TranscriptionOutputFilter.filter(text)
-            logger.notice("📝 Output filter result: \(text, privacy: .public)")
+            logger.notice("📝 Transcript received, \(AppLogRedaction.textSummary(text), privacy: .public)")
+
+            let filteredText = TranscriptionOutputFilter.filter(text)
+            logger.notice("📝 Output filter completed, \(AppLogRedaction.changeSummary(before: text, after: filteredText), privacy: .public)")
+            text = filteredText
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
 
             let powerModeManager = PowerModeManager.shared
@@ -78,12 +80,14 @@ class TranscriptionPipeline {
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
             if UserDefaults.standard.bool(forKey: "IsTextFormattingEnabled") {
+                let preFormattedText = text
                 text = WhisperTextFormatter.format(text)
-                logger.notice("📝 Formatted transcript: \(text, privacy: .public)")
+                logger.notice("📝 Text formatting completed, \(AppLogRedaction.changeSummary(before: preFormattedText, after: text), privacy: .public)")
             }
 
+            let preReplacementText = text
             text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
-            logger.notice("📝 WordReplacement: \(text, privacy: .public)")
+            logger.notice("📝 Word replacement completed, \(AppLogRedaction.changeSummary(before: preReplacementText, after: text), privacy: .public)")
 
             let audioAsset = AVURLAsset(url: audioURL)
             let actualDuration = (try? CMTimeGetSeconds(await audioAsset.load(.duration))) ?? 0.0

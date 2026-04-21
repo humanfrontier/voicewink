@@ -484,7 +484,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
         )
 
         if status != noErr {
-            logger.error("Failed to create audio file at \(url.path, privacy: .public): \(status, privacy: .public)")
+            logger.error("Failed to create audio file \(AppLogRedaction.fileSummary(url), privacy: .public): \(status, privacy: .public)")
             throw CoreAudioRecorderError.failedToCreateFile(status: status)
         }
 
@@ -727,8 +727,8 @@ final class CoreAudioRecorder: @unchecked Sendable {
         // Get manufacturer
         let manufacturer = getDeviceStringProperty(deviceID: deviceID, selector: kAudioDevicePropertyDeviceManufacturerCFString) ?? "Unknown"
 
-        logger.notice("🎙️ Device info: name=\(deviceName, privacy: .public), uid=\(deviceUID, privacy: .public)")
-        logger.notice("🎙️ Device details: transport=\(transportType, privacy: .public), manufacturer=\(manufacturer, privacy: .public)")
+        logger.notice("🎙️ Device info: id=\(deviceID, privacy: .public), name{\(AppLogRedaction.textSummary(deviceName), privacy: .public)} uid{\(AppLogRedaction.textSummary(deviceUID), privacy: .public)}")
+        logger.notice("🎙️ Device details: transport=\(transportType, privacy: .public), manufacturer{\(AppLogRedaction.textSummary(manufacturer), privacy: .public)}")
 
         // Get buffer frame size
         if let bufferSize = getBufferFrameSize(deviceID: deviceID) {

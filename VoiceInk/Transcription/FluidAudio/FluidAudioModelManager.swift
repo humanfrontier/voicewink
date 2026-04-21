@@ -68,7 +68,7 @@ class FluidAudioModelManager: ObservableObject {
             downloadProgress[modelName] = 1.0
         } catch {
             UserDefaults.standard.set(false, forKey: parakeetDefaultsKey(for: modelName))
-            logger.error("❌ FluidAudio download failed for \(modelName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("❌ FluidAudio download failed for \(modelName, privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
 
         timer.invalidate()

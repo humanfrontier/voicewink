@@ -432,7 +432,7 @@ class WhisperModelManager: ObservableObject {
     // MARK: - Helpers
 
     private func logError(_ message: String, _ error: Error) {
-        logger.error("❌ \(message, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        logger.error("❌ \(message, privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
     }
 }
 

@@ -233,6 +233,49 @@ struct VoiceWinkPhase02Tests {
     }
 
     @Test
+    func transcriptionLogRedactionSummariesExcludeTranscriptContents() {
+        let rawTranscript = "my ssn is 123-45-6789 and the launch code is swordfish"
+        let filteredTranscript = "launch code is swordfish"
+
+        let summary = AppLogRedaction.textSummary(rawTranscript)
+        let changeSummary = AppLogRedaction.changeSummary(before: rawTranscript, after: filteredTranscript)
+
+        #expect(!summary.contains(rawTranscript))
+        #expect(!summary.contains("123-45-6789"))
+        #expect(!summary.contains("swordfish"))
+        #expect(summary.contains("characters="))
+        #expect(summary.contains("words="))
+
+        #expect(!changeSummary.contains(rawTranscript))
+        #expect(!changeSummary.contains(filteredTranscript))
+        #expect(!changeSummary.contains("123-45-6789"))
+        #expect(!changeSummary.contains("swordfish"))
+        #expect(changeSummary.contains("changed=true"))
+    }
+
+    @Test
+    func appLogRedactionURLAndErrorSummariesExcludeSensitiveContents() {
+        let url = "https://example.com/private/path?token=super-secret"
+        let error = NSError(
+            domain: "VoiceWinkTests",
+            code: 42,
+            userInfo: [NSLocalizedDescriptionKey: "failed while processing super-secret token"]
+        )
+
+        let urlSummary = AppLogRedaction.urlSummary(url)
+        let errorSummary = AppLogRedaction.errorSummary(error)
+
+        #expect(!urlSummary.contains(url))
+        #expect(!urlSummary.contains("super-secret"))
+        #expect(urlSummary.contains("scheme=https"))
+        #expect(urlSummary.contains("hasQuery=true"))
+
+        #expect(!errorSummary.contains("super-secret"))
+        #expect(errorSummary.contains("domain=VoiceWinkTests"))
+        #expect(errorSummary.contains("code=42"))
+    }
+
+    @Test
     func updateConfigurationRequiresFeedAndSparkleKeyForAutomaticChecks() {
         let config = AppUpdateConfiguration(infoDictionary: [
             AppIdentity.updateFeedURLInfoKey: "https://example.com/appcast.xml",

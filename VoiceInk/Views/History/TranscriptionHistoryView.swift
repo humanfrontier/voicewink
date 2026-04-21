@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let transcriptionHistoryLogger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "TranscriptionHistoryView")
 
 struct TranscriptionHistoryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -379,7 +382,7 @@ struct TranscriptionHistoryView: View {
             lastTimestamp = items.last?.timestamp
             hasMoreContent = items.count == pageSize
         } catch {
-            print("Error loading transcriptions: \(error)")
+            transcriptionHistoryLogger.error("Failed to load transcription history: \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
 
@@ -396,7 +399,7 @@ struct TranscriptionHistoryView: View {
             self.lastTimestamp = newItems.last?.timestamp
             hasMoreContent = newItems.count == pageSize
         } catch {
-            print("Error loading more transcriptions: \(error)")
+            transcriptionHistoryLogger.error("Failed to load more transcription history: \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
     
@@ -415,7 +418,7 @@ struct TranscriptionHistoryView: View {
             do {
                 try FileManager.default.removeItem(at: url)
             } catch {
-                print("Error deleting audio file: \(error.localizedDescription)")
+                transcriptionHistoryLogger.error("Failed to delete transcription history audio file \(AppLogRedaction.fileSummary(url), privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
             }
         }
 
@@ -433,7 +436,7 @@ struct TranscriptionHistoryView: View {
             NotificationCenter.default.post(name: .transcriptionDeleted, object: nil)
             await loadInitialContent()
         } catch {
-            print("Error saving deletion: \(error.localizedDescription)")
+            transcriptionHistoryLogger.error("Failed to save transcription history deletion: \(AppLogRedaction.errorSummary(error), privacy: .public)")
             await loadInitialContent()
         }
     }
@@ -481,7 +484,7 @@ struct TranscriptionHistoryView: View {
                 }
             }
         } catch {
-            print("Error selecting all transcriptions: \(error)")
+            transcriptionHistoryLogger.error("Failed to select all transcription history items: \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
 }

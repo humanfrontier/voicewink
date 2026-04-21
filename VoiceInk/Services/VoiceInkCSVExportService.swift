@@ -1,5 +1,8 @@
 import Foundation
 import AppKit
+import OSLog
+
+private let csvExportLogger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "VoiceInkCSVExportService")
 
 class VoiceInkCSVExportService {
     
@@ -15,7 +18,7 @@ class VoiceInkCSVExportService {
                 do {
                     try csvString.write(to: url, atomically: true, encoding: .utf8)
                 } catch {
-                    print("Error writing CSV file: \(error)")
+                    csvExportLogger.error("CSV export write failed for \(AppLogRedaction.fileSummary(url), privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
                 }
             }
         }

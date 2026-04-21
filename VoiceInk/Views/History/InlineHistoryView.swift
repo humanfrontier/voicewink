@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let inlineHistoryLogger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "InlineHistoryView")
 
 struct InlineHistoryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -374,7 +377,7 @@ struct InlineHistoryView: View {
             lastTimestamp = items.last?.timestamp
             hasMoreContent = items.count == pageSize
         } catch {
-            print("Error loading transcriptions: \(error)")
+            inlineHistoryLogger.error("Failed to load inline history transcriptions: \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
 
@@ -391,7 +394,7 @@ struct InlineHistoryView: View {
             self.lastTimestamp = newItems.last?.timestamp
             hasMoreContent = newItems.count == pageSize
         } catch {
-            print("Error loading more transcriptions: \(error)")
+            inlineHistoryLogger.error("Failed to load more inline history transcriptions: \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
 
@@ -420,7 +423,7 @@ struct InlineHistoryView: View {
             do {
                 try FileManager.default.removeItem(at: url)
             } catch {
-                print("Error deleting audio file: \(error.localizedDescription)")
+                inlineHistoryLogger.error("Failed to delete inline history audio file \(AppLogRedaction.fileSummary(url), privacy: .public): \(AppLogRedaction.errorSummary(error), privacy: .public)")
             }
         }
 
@@ -448,7 +451,7 @@ struct InlineHistoryView: View {
                 NotificationCenter.default.post(name: .transcriptionDeleted, object: nil)
                 await loadInitialContent()
             } catch {
-                print("Error saving deletion: \(error.localizedDescription)")
+                inlineHistoryLogger.error("Failed to save inline history deletion: \(AppLogRedaction.errorSummary(error), privacy: .public)")
                 await loadInitialContent()
             }
         }
@@ -478,7 +481,7 @@ struct InlineHistoryView: View {
                 }
             }
         } catch {
-            print("Error selecting all transcriptions: \(error)")
+            inlineHistoryLogger.error("Failed to select all inline history transcriptions: \(AppLogRedaction.errorSummary(error), privacy: .public)")
         }
     }
 }
