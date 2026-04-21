@@ -35,7 +35,7 @@ make dev
 - `make setup` - Prepare the whisper framework for linking
 - `make build` - Build the VoiceWink Xcode project
 - `make local` - Build for local use with a stable self-signed local identity
-- `make release-public` - Build an ad hoc signed public release zip without notarization
+- `make package-public` - Build an ad hoc signed public release zip without notarization
 - `make release-archive` - Build a Developer ID signed release archive and zip
 - `make run` - Launch the built VoiceWink app
 - `make dev` - Build and run (ideal for development workflow)
@@ -68,9 +68,25 @@ make local
 open ./VoiceWink.app
 ```
 
-This builds VoiceWink with a project-owned local signing identity using a separate build configuration (`LocalBuild.xcconfig`) that requires no Apple Developer account.
+This builds VoiceWink with the shared local-mode runtime and then applies a project-owned local signing identity. It uses a separate build configuration (`LocalBuild.xcconfig`) and requires no Apple Developer account.
 
 `P12_PASSWORD` is only used locally when the self-signed codesign identity is exported and imported into the local keychain. Set it in your shell or CI secrets, never in source control.
+
+### One Runtime Mode, Two Signing Modes
+
+`make local` and `make package-public` are not two different app variants. They both build the same local-mode VoiceWink runtime:
+- `VoiceWink.local.entitlements`
+- `LOCAL_BUILD` conditional code path
+- no CloudKit dictionary sync
+- no automatic Sparkle updater unless a release source is configured
+
+The actual split is in the final signing and output shape:
+- `make local` signs the app with a stable self-signed `VoiceWink Local Codesign` certificate and keeps it at `./VoiceWink.app`
+- `make package-public` archives the same local-mode app in Release configuration, then ad hoc signs and zips it for GitHub/Homebrew distribution
+
+`make release-public` remains available as a backwards-compatible alias.
+
+That split exists because macOS treats the resulting identities differently. The local self-signed app gets a stable certificate-based designated requirement, which helps Accessibility trust survive rebuilds. The ad hoc public build falls back to a cdhash-based designated requirement, which is fine for shipping a one-off archive but is not stable enough to replace the local trust-preserving path.
 
 ### How It Works
 
@@ -110,7 +126,7 @@ That combination is what keeps macOS Accessibility trust attached across rebuild
 
 The local certificate is intentionally self-signed. It is valid for stable local identity and permission testing, but Gatekeeper will reject it for public distribution. Do not publish `make local` output.
 
-If you want to ship an unnotarized public build, use `make release-public`. That target rebuilds the app in Release configuration and re-signs the final bundle ad hoc, which is a better fit for public unnotarized distribution than a machine-local self-signed identity.
+If you want to ship an unnotarized public build, use `make package-public`. That target packages the same local-mode runtime in Release configuration and re-signs the final bundle ad hoc, which is a better fit for public unnotarized distribution than a machine-local self-signed identity.
 
 ---
 
@@ -121,14 +137,20 @@ If you want to ship an unnotarized public build, use `make release-public`. That
 For an unnotarized public release that does not require an Apple Developer account:
 
 ```bash
-make release-public
+make package-public
 ```
 
 This target:
-- archives the app with Release configuration
-- uses the local-only entitlements and `LOCAL_BUILD` code path
+- archives the same local-mode app with Release configuration
+- preserves the local-only entitlements and `LOCAL_BUILD` code path
 - re-signs the finished bundle ad hoc
 - packages the finished app as `build/release/VoiceWink.zip`
+
+Legacy alias:
+
+```bash
+make release-public
+```
 
 Outputs:
 - archive: `build/release/VoiceWink.xcarchive`

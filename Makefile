@@ -8,13 +8,22 @@ LOCAL_CODESIGN_DIR := $(DEPS_DIR)/codesign
 LOCAL_CODESIGN_KEYCHAIN := $(LOCAL_CODESIGN_DIR)/VoiceWinkLocal.keychain-db
 LOCAL_CODESIGN_CERT_NAME := VoiceWink Local Codesign
 LOCAL_CODESIGN_SCRIPT := $(CURDIR)/scripts/ensure_local_codesign_identity.sh
+LOCAL_RUNTIME_ENTITLEMENTS := $(CURDIR)/VoiceInk/VoiceWink.local.entitlements
+LOCAL_RUNTIME_SWIFT_CONDITIONS := '$$(inherited) LOCAL_BUILD'
+LOCAL_RUNTIME_XCODE_OVERRIDES := \
+		CODE_SIGN_IDENTITY="-" \
+		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGNING_ALLOWED=YES \
+		DEVELOPMENT_TEAM="" \
+		CODE_SIGN_ENTITLEMENTS=$(LOCAL_RUNTIME_ENTITLEMENTS) \
+		SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(LOCAL_RUNTIME_SWIFT_CONDITIONS)
 RELEASE_DIR := $(CURDIR)/build/release
 RELEASE_DERIVED_DATA := $(CURDIR)/.release-build
 RELEASE_ARCHIVE_PATH := $(RELEASE_DIR)/VoiceWink.xcarchive
 RELEASE_APP_PATH := $(RELEASE_DIR)/VoiceWink.app
 RELEASE_ZIP_PATH := $(RELEASE_DIR)/VoiceWink.zip
 
-.PHONY: all clean whisper setup build local check healthcheck help dev run release-check release-public release-archive
+.PHONY: all clean whisper setup build local check healthcheck help dev run release-check package-public release-public release-archive
 
 # Default target
 all: check build
@@ -63,12 +72,7 @@ local: check setup
 	xcodebuild -project VoiceWink.xcodeproj -scheme VoiceWink -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
 		-xcconfig LocalBuild.xcconfig \
-		CODE_SIGN_IDENTITY="-" \
-		CODE_SIGNING_REQUIRED=NO \
-		CODE_SIGNING_ALLOWED=YES \
-		DEVELOPMENT_TEAM="" \
-		CODE_SIGN_ENTITLEMENTS=$(CURDIR)/VoiceInk/VoiceWink.local.entitlements \
-		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
+		$(LOCAL_RUNTIME_XCODE_OVERRIDES) \
 		build
 	@set -e; \
 	APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/VoiceWink.app"; \
@@ -82,7 +86,7 @@ local: check setup
 		rm -rf "$$LOCAL_APP_PATH"; \
 		ditto "$$APP_PATH" "$$LOCAL_APP_PATH"; \
 		xattr -cr "$$LOCAL_APP_PATH"; \
-		codesign --force --deep --sign "$(LOCAL_CODESIGN_CERT_NAME)" --keychain "$(LOCAL_CODESIGN_KEYCHAIN)" --entitlements $(CURDIR)/VoiceInk/VoiceWink.local.entitlements "$$LOCAL_APP_PATH"; \
+		codesign --force --deep --sign "$(LOCAL_CODESIGN_CERT_NAME)" --keychain "$(LOCAL_CODESIGN_KEYCHAIN)" --entitlements "$(LOCAL_RUNTIME_ENTITLEMENTS)" "$$LOCAL_APP_PATH"; \
 		codesign --verify --deep --strict "$$LOCAL_APP_PATH"; \
 		echo ""; \
 		echo "Build complete! App saved to: $(LOCAL_APP_PATH)"; \
@@ -119,23 +123,18 @@ release-check:
 	@test -n "$(VOICEWINK_RELEASE_TEAM)" || { echo "VOICEWINK_RELEASE_TEAM is required, for example: export VOICEWINK_RELEASE_TEAM=YOURTEAMID"; exit 1; }
 	@test -n "$(VOICEWINK_RELEASE_IDENTITY)" || { echo "VOICEWINK_RELEASE_IDENTITY is required, for example: export VOICEWINK_RELEASE_IDENTITY='Developer ID Application: Your Name (TEAMID)'"; exit 1; }
 
-release-public: check setup
-	@echo "Building VoiceWink public release archive (ad hoc signed, not notarized)..."
+package-public: check setup
+	@echo "Building VoiceWink public release archive from the shared local-mode runtime (ad hoc signed, not notarized)..."
 	@mkdir -p "$(RELEASE_DIR)"
 	@rm -rf "$(RELEASE_DERIVED_DATA)" "$(RELEASE_ARCHIVE_PATH)" "$(RELEASE_APP_PATH)" "$(RELEASE_ZIP_PATH)"
 	xcodebuild -project VoiceWink.xcodeproj -scheme VoiceWink -configuration Release \
 		-derivedDataPath "$(RELEASE_DERIVED_DATA)" \
 		-archivePath "$(RELEASE_ARCHIVE_PATH)" \
-		CODE_SIGN_IDENTITY="-" \
-		CODE_SIGNING_REQUIRED=NO \
-		CODE_SIGNING_ALLOWED=YES \
-		DEVELOPMENT_TEAM="" \
-		CODE_SIGN_ENTITLEMENTS=$(CURDIR)/VoiceInk/VoiceWink.local.entitlements \
-		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
+		$(LOCAL_RUNTIME_XCODE_OVERRIDES) \
 		archive
 	@ditto "$(RELEASE_ARCHIVE_PATH)/Products/Applications/VoiceWink.app" "$(RELEASE_APP_PATH)"
 	@xattr -cr "$(RELEASE_APP_PATH)"
-	@codesign --force --deep --sign - "$(RELEASE_APP_PATH)"
+	@codesign --force --deep --sign - --entitlements "$(LOCAL_RUNTIME_ENTITLEMENTS)" "$(RELEASE_APP_PATH)"
 	@codesign --verify --deep --strict --verbose=2 "$(RELEASE_APP_PATH)"
 	@ditto -c -k --sequesterRsrc --keepParent "$(RELEASE_APP_PATH)" "$(RELEASE_ZIP_PATH)"
 	@echo ""
@@ -143,6 +142,8 @@ release-public: check setup
 	@echo "Public release app ready at: $(RELEASE_APP_PATH)"
 	@echo "Public release zip ready at: $(RELEASE_ZIP_PATH)"
 	@echo "Note: this build is ad hoc signed and not notarized."
+
+release-public: package-public
 
 release-archive: check setup release-check
 	@echo "Building VoiceWink release archive..."
@@ -185,8 +186,9 @@ help:
 	@echo "  whisper            Clone and build whisper.cpp XCFramework"
 	@echo "  setup              Copy whisper XCFramework to the VoiceWink project"
 	@echo "  build              Build the VoiceWink Xcode project"
-	@echo "  local              Build for local use (no Apple Developer certificate needed)"
-	@echo "  release-public     Build an ad hoc signed public release zip (not notarized)"
+	@echo "  local              Build the local-mode app with a stable self-signed identity"
+	@echo "  package-public     Package the same local-mode app as an ad hoc signed Release zip"
+	@echo "  release-public     Backwards-compatible alias for package-public"
 	@echo "  release-archive    Build a Developer ID signed release archive and zip"
 	@echo "  run                Launch the built VoiceWink app"
 	@echo "  dev                Build and run the app (for development)"
